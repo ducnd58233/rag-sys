@@ -1,0 +1,9 @@
+name: rag-sys
+channels:
+  - default
+  - conda-forge
+dependencies:
+  - python=3.14
+  - pip
+  - pip:
+      - uv

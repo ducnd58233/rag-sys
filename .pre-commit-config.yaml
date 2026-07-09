@@ -1,0 +1,37 @@
+default_language_version:
+  python: python3.14
+
+repos:
+  - repo: https://github.com/psf/black
+    rev: 25.11.0
+    hooks:
+      - id: black
+        language_version: python3.14
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.11.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+
+  - repo: local
+    hooks:
+      - id: absolufy-imports
+        name: absolufy-imports
+        language: python
+        additional_dependencies: [absolufy-imports]
+        entry: absolufy-imports
+        types: [python]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
