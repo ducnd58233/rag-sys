@@ -27,6 +27,8 @@ repos:
         additional_dependencies: [absolufy-imports]
         entry: absolufy-imports
         types: [python]
+        files: ^(src|tests)/
+        args: [--application-directories=src:tests]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
