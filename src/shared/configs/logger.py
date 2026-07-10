@@ -2,7 +2,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from configs.settings import LoggingSettings
+from src.shared.configs.settings import LoggingSettings
 
 
 def configure_logging(config: LoggingSettings):

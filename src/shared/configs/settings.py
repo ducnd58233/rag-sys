@@ -24,6 +24,20 @@ class LoggingSettings(BaseSettings):
     file_backup_count: int = Field(default=5, ge=0)
 
 
+class ElasticsearchSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="ELASTICSEARCH_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    urls: list[str] = Field(default=["http://localhost:9200"])
+    index: str = Field(default="rag-documents")
+    request_timeout_seconds: float = Field(default=30.0, gt=0)
+    number_of_shards: int = Field(default=1, ge=1)
+    number_of_replicas: int = Field(default=0, ge=0)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -32,3 +46,4 @@ class Settings(BaseSettings):
     )
 
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
+    elasticsearch: ElasticsearchSettings = Field(default_factory=ElasticsearchSettings)
