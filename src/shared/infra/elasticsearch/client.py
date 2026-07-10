@@ -2,10 +2,10 @@ from src.shared.configs.settings import ElasticsearchSettings
 from elasticsearch import AsyncElasticsearch
 
 class Elasticsearch:
-    def __init__(self, setting: ElasticsearchSettings):
+    def __init__(self, settings: ElasticsearchSettings):
         self._client = AsyncElasticsearch(
-            hosts=setting.urls,
-            request_timeout=setting.request_timeout_seconds,
+            hosts=settings.urls,
+            request_timeout=settings.request_timeout_seconds,
         )
 
     async def ping(self) -> bool:

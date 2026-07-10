@@ -11,6 +11,11 @@ async def main() -> None:
 
     print("Elasticsearch is running")
 
+    texts = ["This is the test to check if embedding works", "This is the second test to check if embedding works"]
+
+    embedding = container.embedding_model
+    embeddings = await embedding.embed(texts)
+    print(embeddings)
 
 def run() -> None:
     asyncio.run(main())

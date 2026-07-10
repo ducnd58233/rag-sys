@@ -1,0 +1,83 @@
+name: rag-sys
+
+x-vllm-common: &vllm-common
+  image: vllm/vllm-openai:latest
+  volumes:
+    - huggingface_cache:/root/.cache/huggingface
+  shm_size: "2gb"
+  ipc: host
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            device_ids: ["0"]
+            capabilities: [gpu]
+  restart: unless-stopped
+
+services:
+  vllm-embedding:
+    <<: *vllm-common
+    command: >
+      --model Qwen/Qwen3-Embedding-0.6B
+      --runner pooling
+      --served-model-name qwen3-embedding
+      --host 0.0.0.0
+      --port 8001
+      --gpu-memory-utilization 0.35
+      --max-model-len 4096
+      --enforce-eager
+      --trust-remote-code
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8001/health || curl -fsS http://localhost:8001/v1/models"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 180s
+
+  # vllm-rerank:
+  #   <<: *vllm-common
+  #   command: >
+  #     --model Qwen/Qwen3-Reranker-0.6B
+  #     --runner pooling
+  #     --served-model-name qwen3-reranker
+  #     --host 0.0.0.0
+  #     --port 8002
+  #     --gpu-memory-utilization 0.25
+  #     --max-model-len 4096
+  #     --enforce-eager
+  #     --trust-remote-code
+  #     --hf-overrides '{"architectures":["Qwen3ForSequenceClassification"],"classifier_from_token":["no","yes"],"is_original_qwen3_reranker":true}'
+  #   ports:
+  #     - "8002:8002"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -fsS http://localhost:8002/health || curl -fsS http://localhost:8002/v1/models"]
+  #     interval: 15s
+  #     timeout: 10s
+  #     retries: 30
+  #     start_period: 180s
+
+  # vllm-chat:
+  #   <<: *vllm-common
+  #   command: >
+  #     --model Qwen/Qwen2.5-1.5B-Instruct
+  #     --served-model-name qwen2.5-chat
+  #     --host 0.0.0.0
+  #     --port 8003
+  #     --gpu-memory-utilization 0.35
+  #     --max-model-len 4096
+  #     --enforce-eager
+  #     --trust-remote-code
+  #   ports:
+  #     - "8003:8003"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -fsS http://localhost:8003/health || curl -fsS http://localhost:8003/v1/models"]
+  #     interval: 15s
+  #     timeout: 10s
+  #     retries: 30
+  #     start_period: 300s
+
+volumes:
+  huggingface_cache:
