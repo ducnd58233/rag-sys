@@ -8,6 +8,10 @@ class Elasticsearch:
             request_timeout=settings.request_timeout_seconds,
         )
 
+    @property
+    def client(self) -> AsyncElasticsearch:
+        return self._client
+
     async def ping(self) -> bool:
         return await self._client.ping()
 

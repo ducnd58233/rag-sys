@@ -1,0 +1,23 @@
+from enum import StrEnum
+
+class ElementCategory(StrEnum):
+  TITLE = "Title"
+  NARRATIVE_TEXT = "NarrativeText"
+  TEXT = "Text"
+  LIST_ITEM = "ListItem"
+  TABLE = "Table"
+  IMAGE = "Image"
+  HEADER = "Header"
+  FOOTER = "Footer"
+  PAGE_BREAK = "PageBreak"
+  FIGURE_CAPTION = "FigureCaption"
+  FORMULA = "Formula"
+  CODE_SNIPPET = "CodeSnippet"
+  ADDRESS = "Address"
+  EMAIL_ADDRESS = "EmailAddress"
+  PAGE_NUMBER = "PageNumber"
+  SUBTITLE = "Subtitle"
+  UNCATEGORIZED_TEXT = "UncategorizedText"
+  CHECK_BOX = "CheckBox"
+  RADIO_BUTTON = "RadioButton"
+  UNKNOWN = "Unknown"

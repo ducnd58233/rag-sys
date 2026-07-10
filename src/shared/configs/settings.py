@@ -71,6 +71,17 @@ class EmbeddingSettings(BaseSettings):
     timeout_seconds: float = Field(default=120.0, ge=0)
     model: str = Field(default="batiai/qwen3-embedding:0.6b")
 
+class IngestionSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="INGESTION_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    max_file_size_bytes: int = Field(default=10_485_760, ge=1)
+    chunk_max_characters: int = Field(default=1500, ge=128)
+    chunk_combine_text_under_n_chars: int = Field(default=256, ge=0)
+    chunk_new_after_n_chars: int = Field(default=1000, ge=128)
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -82,3 +93,4 @@ class Settings(BaseSettings):
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     elasticsearch: ElasticsearchSettings = Field(default_factory=ElasticsearchSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
+    ingestion: IngestionSettings = Field(default_factory=IngestionSettings)
