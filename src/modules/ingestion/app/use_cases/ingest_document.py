@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import logging
 import uuid
 from src.modules.ingestion.app.dto import IngestDocumentRequest, IngestDocumentResult
-from src.modules.ingestion.app.ports import ISourceResolver, IDocumentExtractor, IChunkingStrategy, IVectorStore
+from src.modules.ingestion.app.ports import IDocumentProcessor, ISourceResolver, IVectorStore
 from src.modules.ingestion.domain.models import DocumentId, IngestionStatus
 from src.shared.infra.embedding import IEmbeddingModel
 
@@ -13,14 +13,12 @@ class IngestDocumentUseCase:
     def __init__(
         self,
         source_resolver: ISourceResolver,
-        extractor: IDocumentExtractor,
-        chunking_strategy: IChunkingStrategy,
+        processor: IDocumentProcessor,
         embedder: IEmbeddingModel,
         vector_store: IVectorStore,
     ) -> None:
         self._source_resolver = source_resolver
-        self._extractor = extractor
-        self._chunking_strategy = chunking_strategy
+        self._processor = processor
         self._embedder = embedder
         self._vector_store = vector_store
 
@@ -35,14 +33,10 @@ class IngestDocumentUseCase:
             source_path=request.source_path,
             document_id=document_id,
         )
+        processed = await self._processor.process(source)
+        merged_metadata = {**processed.metadata, **request.metadata}
+        chunks = list(processed.chunks)
 
-        extraction = await self._extractor.extract(source)
-        merged_metadata = {
-            **extraction.metadata,
-            **request.metadata,
-        }
-
-        chunks = self._chunking_strategy.chunk(extraction)
         if not chunks:
             logger.warning("No chunks generated for document_id=%s", document_id.value)
             return IngestDocumentResult(

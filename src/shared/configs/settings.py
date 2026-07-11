@@ -78,6 +78,9 @@ class IngestionSettings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+    processor: str = Field(default="unstructured")
+    extraction_timeout_seconds: float = Field(default=120.0, gt=0)
+    pdf_strategy: str = Field(default="fast")
     max_file_size_bytes: int = Field(default=10_485_760, ge=1)
     chunk_max_characters: int = Field(default=1500, ge=128)
     chunk_combine_text_under_n_chars: int = Field(default=256, ge=0)

@@ -1,9 +1,15 @@
 name: rag-sys
 channels:
-  - default
+  - nvidia
   - conda-forge
+  - defaults
 dependencies:
   - python=3.14
+  - nvidia::cuda-toolkit
+  - conda-forge::accelerate
+  - conda-forge::poppler
+  - libmagic
+  - tesseract
   - pip
   - pip:
       - uv

@@ -7,7 +7,7 @@ from src.modules.ingestion.domain.models import (
     Chunk,
     DocumentId,
     DocumentSource,
-    ExtractionResult,
+    ProcessedDocument,
 )
 
 
@@ -19,12 +19,8 @@ class ISourceResolver(Protocol):
     ) -> DocumentSource: ...
 
 
-class IDocumentExtractor(Protocol):
-    async def extract(self, source: DocumentSource) -> ExtractionResult: ...
-
-
-class IChunkingStrategy(Protocol):
-    def chunk(self, extraction: ExtractionResult) -> list[Chunk]: ...
+class IDocumentProcessor(Protocol):
+    async def process(self, source: DocumentSource) -> ProcessedDocument: ...
 
 
 class IVectorStore(Protocol):
