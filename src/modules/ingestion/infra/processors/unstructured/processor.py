@@ -22,20 +22,20 @@ class UnstructuredDocumentProcessor:
                 asyncio.to_thread(self._partition, source),
                 timeout=self._config.extraction_timeout_seconds,
             )
-            chunked_elements = chunk_by_title(
-                elements=raw_elements,
-                max_characters=self._config.chunking.max_characters,
-                combine_text_under_n_chars=self._config.chunking.combine_text_under_n_chars,
-                new_after_n_chars=self._config.chunking.new_after_n_chars,
+            chunked_elements = await asyncio.to_thread(
+                self._chunk_elements,
+                raw_elements,
             )
         except TimeoutError as e:
             raise IngestionInternalError(
-                f"Document extraction timed out after "
-                f"{self._config.extraction_timeout_seconds}s: {source.source_uri}",
+                message=(
+                    "Document extraction timed out after "
+                    f"{self._config.extraction_timeout_seconds}s: {source.source_uri}",
+                ),
             ) from e
         except Exception as e:
             raise IngestionInternalError(
-                f"Failed to process document {source.source_uri}: {e}",
+                message=f"Failed to process document {source.source_uri}: {e}",
             ) from e
 
         base_metadata = {
@@ -77,6 +77,16 @@ class UnstructuredDocumentProcessor:
             chunks=chunks,
         )
 
+    def _chunk_elements(self, elements: list[object]) -> list[Chunk]:
+        from unstructured.chunking.title import chunk_by_title
+
+        return chunk_by_title(
+            elements=elements,
+            max_characters=self._config.chunking.max_characters,
+            combine_text_under_n_chars=self._config.chunking.combine_text_under_n_chars,
+            new_after_n_chars=self._config.chunking.new_after_n_chars,
+        )
+
     def _partition(self, source: DocumentSource) -> list[object]:
         from unstructured.partition.auto import partition
         from io import BytesIO
@@ -93,5 +103,5 @@ class UnstructuredDocumentProcessor:
                 strategy=strategy,
             )
         raise IngestionValidationError(
-            "DocumentSource must provide local_path or content",
+            message="DocumentSource must provide local_path or content",
         )

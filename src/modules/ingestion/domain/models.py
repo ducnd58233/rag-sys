@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 
@@ -26,10 +25,12 @@ class DocumentSource:
     local_path: Path | None = None
     content: bytes | None = None
 
+
 @dataclass(frozen=True, slots=True)
 class ChunkDraft:
     content: str
     metadata: dict[str, str]
+
 
 @dataclass(frozen=True, slots=True)
 class Chunk:
@@ -49,7 +50,6 @@ class Chunk:
         chunking_strategy: str,
     ) -> Chunk | None:
         content = draft.content.strip()
-
         if not content:
             return None
 
@@ -72,10 +72,3 @@ class ProcessedDocument:
     document_id: DocumentId
     metadata: dict[str, str]
     chunks: tuple[Chunk, ...]
-
-@dataclass(frozen=True, slots=True)
-class IngestionResult:
-    document_id: DocumentId
-    chunk_count: int
-    status: IngestionStatus
-    indexed_at: datetime

@@ -14,7 +14,7 @@ from src.modules.ingestion.infra.processors.factory import DocumentProcessorFact
 from src.modules.ingestion.infra.sources.file_source_resolver import FileSourceResolver
 from src.shared.configs.settings import Settings
 from src.shared.infra.elasticsearch.client import Elasticsearch
-from src.shared.infra.embedding.ports import IEmbeddingModel
+from src.shared.app.ports import IEmbeddingModel
 
 __all__ = ["IngestionComponentFactory", "IngestDocumentUseCase"]
 

@@ -1,6 +1,6 @@
+from src.shared.app.ports import IEmbeddingModel
 from src.shared.configs.settings import EmbeddingSettings
 from src.shared.infra.embedding.ollama import OllamaEmbedding
-from src.shared.infra.embedding.ports import IEmbeddingModel
 from src.shared.infra.embedding.vllm import VllmEmbedding
 
 

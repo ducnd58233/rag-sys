@@ -4,7 +4,7 @@ import uuid
 from src.modules.ingestion.app.dto import IngestDocumentRequest, IngestDocumentResult
 from src.modules.ingestion.app.ports import IDocumentProcessor, ISourceResolver, IVectorStore
 from src.modules.ingestion.domain.models import DocumentId, IngestionStatus
-from src.shared.infra.embedding import IEmbeddingModel
+from src.shared.app.ports import IEmbeddingModel
 
 
 logger = logging.getLogger(__name__)

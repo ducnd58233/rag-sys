@@ -5,6 +5,7 @@ from src.modules.ingestion.infra.processors.unstructured.config import Unstructu
 from src.modules.ingestion.infra.processors.unstructured.processor import UnstructuredDocumentProcessor
 from src.shared.configs.settings import IngestionSettings
 
+SUPPORTED_PROCESSORS = ("unstructured",)
 
 class DocumentProcessorFactory:
     @staticmethod
@@ -25,8 +26,10 @@ class DocumentProcessorFactory:
                         extraction_timeout_seconds=settings.extraction_timeout_seconds,
                     ),
                 )
-            case _:
+            case unknown:
                 raise IngestionValidationError(
-                    message=f"Unsupported ingestion processor: {settings.processor}",
-                    details={"supported_processors": ["unstructured"]},
+                    message=f"Unsupported ingestion processor: {unknown}",
+                    details={
+                        "supported_processors": ",".join(SUPPORTED_PROCESSORS),
+                    },
                 )

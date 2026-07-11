@@ -4,7 +4,8 @@ from src.modules.ingestion import IngestionComponentFactory, IngestDocumentUseCa
 from src.shared.configs.logger import configure_logging
 from src.shared.configs.settings import Settings
 from src.shared.infra.elasticsearch.client import Elasticsearch
-from src.shared.infra.embedding import EmbeddingModelFactory, IEmbeddingModel
+from src.shared.infra.embedding import EmbeddingModelFactory
+from src.shared.app.ports import IEmbeddingModel
 
 
 @dataclass(frozen=True, slots=True)

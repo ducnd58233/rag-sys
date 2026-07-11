@@ -1,14 +1,22 @@
-from src.shared.http.errors import ConflictError, InternalError, NotFoundError, ValidationError
+from src.shared.kernel.errors import (
+    ConflictDomainError,
+    DomainException,
+    InternalDomainError,
+    NotFoundDomainError,
+    ValidationDomainError,
+)
 
+class IngestionError(DomainException):
+    pass
 
-class IngestionValidationError(ValidationError):
-    default_message = "Ingestion validation failed"
+class IngestionValidationError(IngestionError, ValidationDomainError):
+    pass
 
-class IngestionNotFoundError(NotFoundError):
-    default_message = "Document source not found"
+class IngestionNotFoundError(IngestionError, NotFoundDomainError):
+    pass
 
-class IngestionConflictError(ConflictError):
-    default_message = "Ingestion conflict"
+class IngestionConflictError(IngestionError, ConflictDomainError):
+    pass
 
-class IngestionInternalError(InternalError):
-    default_message = "Ingestion failed"
+class IngestionInternalError(IngestionError, InternalDomainError):
+    pass
