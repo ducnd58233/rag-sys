@@ -1,0 +1,42 @@
+FROM python:3.14-slim-bookworm AS builder
+COPY --from=ghcr.io/astral-sh/uv:0.8.0 /uv /uvx /bin/
+
+ENV UV_COMPILE_BYTECODE=0 \
+    UV_LINK_MODE=copy \
+    UV_NO_DEV=1 \
+    UV_PYTHON_DOWNLOADS=0
+
+WORKDIR /app
+
+# Layer 1: deps only
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project --no-editable
+
+# Layer 2: project
+COPY pyproject.toml README.md uv.lock ./
+COPY src ./src
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-editable --no-dev
+
+FROM python:3.14-slim-bookworm AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libmagic1 \
+      poppler-utils \
+      tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --create-home --uid 10001 appuser
+WORKDIR /app
+
+COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
+COPY --from=builder --chown=appuser:appuser /app/src /app/src
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
+
+USER appuser
+EXPOSE 8000
+CMD ["uvicorn", "src.app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]

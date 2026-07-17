@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-sys-api
+  namespace: rag-sys
+  labels:
+    app: rag-sys-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rag-sys-api
+  template:
+    metadata:
+      labels:
+        app: rag-sys-api
+    spec:
+      containers:
+        - name: api
+          image: rag-sys-api:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: rag-sys-api
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
