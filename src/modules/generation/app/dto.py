@@ -3,8 +3,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from src.modules.generation.domain.models import ContextChunk
-
 
 @dataclass(frozen=True, slots=True)
 class AskRequest:
@@ -17,6 +15,8 @@ class AskRequest:
 class CitationItem:
     chunk_id: str
     document_id: str
+    content: str
+    score: float
 
 
 @dataclass(frozen=True, slots=True)

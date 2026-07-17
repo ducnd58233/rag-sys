@@ -119,7 +119,7 @@ class RetrievalSettings(BaseSettings):
     candidate_k: int = Field(default=50, ge=1, le=500)
     num_candidates: int = Field(default=100, ge=1, le=2000)
     rank_constant: int = Field(default=60, ge=1)
-    min_fused_score: float | None = Field(default=0.016, ge=0.0)
+    min_fused_score: float | None = Field(default=None, ge=0.0)
 
 
 class Settings(BaseSettings):

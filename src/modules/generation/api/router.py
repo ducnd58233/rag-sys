@@ -37,7 +37,12 @@ async def ask(
         answer=result.answer,
         refused=result.refused,
         citations=[
-            CitationResponse(chunk_id=c.chunk_id, document_id=c.document_id)
+            CitationResponse(
+                chunk_id=c.chunk_id,
+                document_id=c.document_id,
+                content=c.content,
+                score=c.score,
+            )
             for c in result.citations
         ],
     )

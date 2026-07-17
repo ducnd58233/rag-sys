@@ -1,16 +1,44 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 
 from src.modules.generation.app.dto import AskRequest, AskResult, CitationItem
+from src.modules.generation.app.llm_schema import GroundedAnswerSchema
 from src.modules.generation.app.ports import IContextRetriever
 from src.modules.generation.domain.errors import GenerationValidationError
-from src.modules.generation.domain.prompt import GroundedPromptBuilder
+from src.modules.generation.domain.models import ContextChunk
+from src.modules.generation.domain.prompt import REFUSAL_ANSWER, GroundedPromptBuilder
 from src.shared.app.ports.chat import IChatModel
 from src.shared.configs.settings import ChatSettings
 
 logger = logging.getLogger(__name__)
-_REFUSAL = "I could not find relevant information to answer this question."
+
+
+def _citations_from_indices(
+    cited_indices: Sequence[int],
+    contexts: Sequence[ContextChunk],
+) -> tuple[CitationItem, ...]:
+    citations: list[CitationItem] = []
+    seen: set[str] = set()
+
+    for source_number in cited_indices:
+        index = source_number - 1
+        if index < 0 or index >= len(contexts):
+            continue
+        context = contexts[index]
+        if context.chunk_id in seen:
+            continue
+        seen.add(context.chunk_id)
+        citations.append(
+            CitationItem(
+                chunk_id=context.chunk_id,
+                document_id=context.document_id,
+                content=context.content,
+                score=context.score,
+            )
+        )
+    return tuple(citations)
 
 
 class AnswerQuestionUseCase:
@@ -31,7 +59,11 @@ class AnswerQuestionUseCase:
         if not query:
             raise GenerationValidationError("query cannot be empty")
 
-        top_k = request.top_k if request.top_k is not None else self._chat_settings.top_k
+        top_k = (
+            request.top_k
+            if request.top_k is not None
+            else self._chat_settings.top_k
+        )
         if top_k < 1:
             raise GenerationValidationError("top_k must be greater than 0")
 
@@ -40,21 +72,54 @@ class AnswerQuestionUseCase:
         )
         if not contexts:
             return AskResult(
-                query=query, 
-                answer=_REFUSAL, 
+                query=query,
+                answer=REFUSAL_ANSWER,
                 citations=(),
-                refused=True
+                refused=True,
             )
 
         system, user = self._prompt.build(query, contexts)
-        result = await self._chat.complete(system=system, user=user)
+        structured = await self._chat.complete_structured(
+            system=system,
+            user=user,
+            schema=GroundedAnswerSchema,
+            temperature=self._chat_settings.temperature,
+            max_tokens=self._chat_settings.max_tokens,
+        )
+
+        if structured.refused:
+            return AskResult(
+                query=query,
+                answer=REFUSAL_ANSWER,
+                citations=(),
+                refused=True,
+            )
+
+        citations = _citations_from_indices(structured.cited_indices, contexts)
+        if not citations:
+            logger.warning(
+                "answer without valid citations; refusing query_len=%d",
+                len(query),
+            )
+            return AskResult(
+                query=query,
+                answer=REFUSAL_ANSWER,
+                citations=(),
+                refused=True,
+            )
+
+        answer = structured.answer.strip() or REFUSAL_ANSWER
+        if answer == REFUSAL_ANSWER:
+            return AskResult(
+                query=query,
+                answer=REFUSAL_ANSWER,
+                citations=(),
+                refused=True,
+            )
 
         return AskResult(
             query=query,
-            answer=result.content,
-            citations=tuple(
-                CitationItem(chunk_id=c.chunk_id, document_id=c.document_id)
-                for c in contexts
-            ),
+            answer=answer,
+            citations=citations,
             refused=False,
         )

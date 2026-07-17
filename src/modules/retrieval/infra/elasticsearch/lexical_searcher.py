@@ -33,7 +33,16 @@ class ElasticsearchLexicalSearcher:
                 size=limit,
                 query={
                     "bool": {
-                        "must": [{"match": {"content": query}}],
+                        "must": [
+                            {
+                                "match": {
+                                    "content": {
+                                        "query": query,
+                                        "minimum_should_match": "70%",
+                                    }
+                                }
+                            }
+                        ],
                         "filter": filters,
                     }
                 },

@@ -12,6 +12,8 @@ class AskRequestBody(BaseModel):
 class CitationResponse(BaseModel):
     chunk_id: str
     document_id: str
+    content: str
+    score: float
 
 
 class AskResponse(BaseModel):

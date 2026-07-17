@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
-
 from collections.abc import Sequence
+
 from src.modules.retrieval.domain.errors import RetrievalInternalError
 from src.modules.retrieval.domain.models import HitChunk
 from src.shared.configs.settings import ElasticsearchSettings
@@ -50,17 +50,15 @@ class ElasticsearchDenseSearcher:
 
         for hit in hits:
             src = hit.get("_source", {})
-            results.append(HitChunk(
-                chunk_id=src.get("chunk_id", hit.get("_id", "")),
-                document_id=src.get("document_id", ""),
-                content=src.get("content", ""),
-                score=float(hit.get("_score", 0.0)),
-                metadata=_metadata_as_str_map(src.get("metadata", {})),
-            ))
+            results.append(
+                HitChunk(
+                    chunk_id=src.get("chunk_id", hit.get("_id", "")),
+                    document_id=src.get("document_id", ""),
+                    content=src.get("content", ""),
+                    score=float(hit.get("_score", 0.0)),
+                    metadata=_metadata_as_str_map(src.get("metadata", {})),
+                )
+            )
 
-        logger.info(
-            "dense search results: %d hits",
-            len(results),
-        )
-
+        logger.info("dense search results: %d hits", len(results))
         return tuple(results)

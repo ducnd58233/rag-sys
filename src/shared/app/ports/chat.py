@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, TypeVar
+
+from pydantic import BaseModel
+
+TSchema = TypeVar("TSchema", bound=BaseModel)
 
 
 @dataclass(frozen=True, slots=True)
@@ -11,10 +15,12 @@ class ToolCall:
     name: str
     args: dict[str, object]
 
+
 @dataclass(frozen=True, slots=True)
 class ChatResult:
     content: str
     tool_calls: tuple[ToolCall, ...] = ()
+
 
 class IChatModel(Protocol):
     async def complete(
@@ -25,5 +31,15 @@ class IChatModel(Protocol):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> ChatResult: ...
+
+    async def complete_structured(
+        self,
+        *,
+        system: str,
+        user: str,
+        schema: type[TSchema],
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> TSchema: ...
 
     def bind_tools(self, tools: Sequence[object]) -> IChatModel: ...
