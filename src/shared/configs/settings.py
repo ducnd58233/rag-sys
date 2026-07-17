@@ -37,6 +37,7 @@ class ElasticsearchSettings(BaseSettings):
     number_of_shards: int = Field(default=1, ge=1)
     number_of_replicas: int = Field(default=0, ge=0)
 
+
 class OllamaSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="OLLAMA_",
@@ -45,6 +46,7 @@ class OllamaSettings(BaseSettings):
         extra="ignore",
     )
     url: str = Field(default="http://localhost:11434")
+
 
 class VLLMSettings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -56,6 +58,7 @@ class VLLMSettings(BaseSettings):
     embedding_url: str = Field(default="http://localhost:8001")
     rerank_url: str = Field(default="http://localhost:8002")
     chat_url: str = Field(default="http://localhost:8003")
+
 
 class EmbeddingSettings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -71,6 +74,7 @@ class EmbeddingSettings(BaseSettings):
     timeout_seconds: float = Field(default=120.0, ge=0)
     model: str = Field(default="batiai/qwen3-embedding:0.6b")
 
+
 class ChatSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="CHAT_",
@@ -79,12 +83,14 @@ class ChatSettings(BaseSettings):
         extra="ignore",
     )
     provider: str = Field(default="ollama")
-    model: str = Field(default="qwen2.5:3b-instruct")
+    model: str = Field(default="qwen2.5:1.5b")
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     vllm: VLLMSettings = Field(default_factory=VLLMSettings)
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1024, ge=1)
     timeout_seconds: float = Field(default=120.0, ge=0)
+    top_k: int = Field(default=8, ge=1, le=100)
+
 
 class IngestionSettings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -101,6 +107,7 @@ class IngestionSettings(BaseSettings):
     chunk_combine_text_under_n_chars: int = Field(default=256, ge=0)
     chunk_new_after_n_chars: int = Field(default=1000, ge=128)
 
+
 class RetrievalSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="RETRIEVAL_",
@@ -112,6 +119,8 @@ class RetrievalSettings(BaseSettings):
     candidate_k: int = Field(default=50, ge=1, le=500)
     num_candidates: int = Field(default=100, ge=1, le=2000)
     rank_constant: int = Field(default=60, ge=1)
+    min_fused_score: float | None = Field(default=0.016, ge=0.0)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -125,3 +134,4 @@ class Settings(BaseSettings):
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     ingestion: IngestionSettings = Field(default_factory=IngestionSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
+    chat: ChatSettings = Field(default_factory=ChatSettings)

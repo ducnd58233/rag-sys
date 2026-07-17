@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from langchain_community.embeddings import Embeddings
+from langchain.embeddings import Embeddings
 
 
 class LangChainEmbeddingModel:

@@ -41,12 +41,12 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command: >
       "set -e;
+       echo 'Pulling chat: $${OLLAMA_CHAT_MODEL}';
+       ollama pull $${OLLAMA_CHAT_MODEL};
        echo 'Pulling embedding: $${OLLAMA_EMBEDDING_MODEL}';
        ollama pull $${OLLAMA_EMBEDDING_MODEL};
        echo 'Pulling rerank: $${OLLAMA_RERANK_MODEL}';
        ollama pull $${OLLAMA_RERANK_MODEL};
-       echo 'Pulling chat: $${OLLAMA_CHAT_MODEL}';
-       ollama pull $${OLLAMA_CHAT_MODEL};
        echo 'All Ollama models ready'"
     restart: "no"
 

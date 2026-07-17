@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from src.modules.generation import AnswerQuestionUseCase, GenerationComponentFactory
 from src.modules.ingestion import IngestionComponentFactory, IngestDocumentUseCase
 from src.modules.retrieval import RetrievalComponentFactory, RetrieveUseCase
 from src.shared.configs.logger import configure_logging
@@ -16,6 +17,7 @@ class AppContainer:
     embedding_model: IEmbeddingModel
     ingest_document: IngestDocumentUseCase
     retrieve: RetrieveUseCase
+    answer_question: AnswerQuestionUseCase
 
     async def shutdown(self) -> None:
         await self.elasticsearch.close()
@@ -37,6 +39,11 @@ def build_container(settings: Settings | None = None) -> AppContainer:
         elasticsearch=elasticsearch,
         embedder=embedding_model,
     )
+    answer_question = GenerationComponentFactory.build_answer_question_use_case(
+        settings=resolved,
+        retrieve_use_case=retrieve,
+    )
+
 
     return AppContainer(
         settings=resolved,
@@ -44,4 +51,5 @@ def build_container(settings: Settings | None = None) -> AppContainer:
         embedding_model=embedding_model,
         ingest_document=ingest_document,
         retrieve=retrieve,
+        answer_question=answer_question,
     )

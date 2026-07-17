@@ -25,6 +25,7 @@ class RetrievalComponentFactory:
         retrieval = settings.retrieval
         return RetrieveUseCase(
             embedder=embedder,
+            retrieval_settings=retrieval,
             lexical_searcher=ElasticsearchLexicalSearcher(
                 elasticsearch, settings.elasticsearch
             ),
@@ -32,6 +33,4 @@ class RetrievalComponentFactory:
                 elasticsearch, settings.elasticsearch
             ),
             rank_fusion=ReciprocalRankFusion(rank_constant=retrieval.rank_constant),
-            candidate_k=retrieval.candidate_k,
-            num_candidates=retrieval.num_candidates,
         )
