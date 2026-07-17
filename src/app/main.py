@@ -57,7 +57,7 @@ async def health_check() -> dict[str, str]:
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Trading Bot",
+        title="RAG System",
         lifespan=lifespan,
     )
 

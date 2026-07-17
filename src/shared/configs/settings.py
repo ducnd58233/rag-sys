@@ -71,6 +71,21 @@ class EmbeddingSettings(BaseSettings):
     timeout_seconds: float = Field(default=120.0, ge=0)
     model: str = Field(default="batiai/qwen3-embedding:0.6b")
 
+class ChatSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="CHAT_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    provider: str = Field(default="ollama")
+    model: str = Field(default="qwen2.5:3b-instruct")
+    ollama: OllamaSettings = Field(default_factory=OllamaSettings)
+    vllm: VLLMSettings = Field(default_factory=VLLMSettings)
+    temperature: float = Field(default=0.1, ge=0.0, le=2.0)
+    max_tokens: int = Field(default=1024, ge=1)
+    timeout_seconds: float = Field(default=120.0, ge=0)
+
 class IngestionSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="INGESTION_",
