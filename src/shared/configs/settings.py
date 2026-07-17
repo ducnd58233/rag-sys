@@ -86,6 +86,18 @@ class IngestionSettings(BaseSettings):
     chunk_combine_text_under_n_chars: int = Field(default=256, ge=0)
     chunk_new_after_n_chars: int = Field(default=1000, ge=128)
 
+class RetrievalSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="RETRIEVAL_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    top_k: int = Field(default=10, ge=1, le=100)
+    candidate_k: int = Field(default=50, ge=1, le=500)
+    num_candidates: int = Field(default=100, ge=1, le=2000)
+    rank_constant: int = Field(default=60, ge=1)
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -97,3 +109,4 @@ class Settings(BaseSettings):
     elasticsearch: ElasticsearchSettings = Field(default_factory=ElasticsearchSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     ingestion: IngestionSettings = Field(default_factory=IngestionSettings)
+    retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from src.modules.ingestion import IngestionComponentFactory, IngestDocumentUseCase
+from src.modules.retrieval import RetrievalComponentFactory, RetrieveUseCase
 from src.shared.configs.logger import configure_logging
 from src.shared.configs.settings import Settings
 from src.shared.infra.elasticsearch.client import Elasticsearch
@@ -14,6 +15,7 @@ class AppContainer:
     elasticsearch: Elasticsearch
     embedding_model: IEmbeddingModel
     ingest_document: IngestDocumentUseCase
+    retrieve: RetrieveUseCase
 
     async def shutdown(self) -> None:
         await self.elasticsearch.close()
@@ -30,10 +32,16 @@ def build_container(settings: Settings | None = None) -> AppContainer:
         elasticsearch=elasticsearch,
         embedder=embedding_model,
     )
+    retrieve = RetrievalComponentFactory.build_retrieve_use_case(
+        settings=resolved,
+        elasticsearch=elasticsearch,
+        embedder=embedding_model,
+    )
 
     return AppContainer(
         settings=resolved,
         elasticsearch=elasticsearch,
         embedding_model=embedding_model,
         ingest_document=ingest_document,
+        retrieve=retrieve,
     )
