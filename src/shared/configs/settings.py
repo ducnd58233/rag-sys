@@ -144,6 +144,7 @@ class ObjectStorageSettings(BaseSettings):
     access_key: SecretStr = Field(default="minioadmin")
     secret_key: SecretStr = Field(default="minioadmin")
     secure: bool = False
+    region: str = Field(default="us-east-1")
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

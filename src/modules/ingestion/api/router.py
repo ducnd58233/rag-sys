@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from src.bootstrap import AppContainer
-from src.modules.ingestion.api.schemas import IngestByPathRequest, IngestDocumentResponse
+from src.modules.ingestion.api.schemas import IngestDocumentRequestBody, IngestDocumentResponse
 from src.modules.ingestion.app.dto import IngestDocumentRequest
 from src.shared.http.deps import get_container
 from src.shared.http.errors import ErrorResponse
@@ -15,24 +15,24 @@ _ERROR_RESPONSES: dict[int, dict[str, object]] = {
 }
 
 @router.post(
-    "/documents/path",
-    response_model=IngestDocumentResponse,
+    "/documents", 
+    response_model=IngestDocumentResponse, 
     responses=_ERROR_RESPONSES,
 )
-async def ingest_document_by_path(
-    body: IngestByPathRequest,
+async def ingest_document(
+    body: IngestDocumentRequestBody,
     container: AppContainer = Depends(get_container),
 ) -> IngestDocumentResponse:
     result = await container.ingest_document.execute(
         IngestDocumentRequest(
-            source_path=body.source_path,
-            document_id=body.document_id,
-            metadata=body.metadata,
+            org_id=body.org_id,
+            document_version_id=body.document_version_id,
         ),
     )
-
     return IngestDocumentResponse(
         document_id=result.document_id,
+        document_version_id=result.document_version_id,
+        version_no=result.version_no,
         chunk_count=result.chunk_count,
-        status=result.status,
+        status=result.status.value,
     )

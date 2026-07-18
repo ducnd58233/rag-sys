@@ -54,9 +54,10 @@ class UnstructuredDocumentProcessor:
         )
 
         chunks: list[Chunk] = []
-        for i,draft in enumerate(drafts):
+        for i, draft in enumerate(drafts):
             chunk = Chunk.from_draft(
                 document_id=source.document_id,
+                version_no=source.version_no,
                 index=i,
                 base_metadata=base_metadata,
                 draft=draft,
@@ -74,7 +75,7 @@ class UnstructuredDocumentProcessor:
         return ProcessedDocument(
             document_id=source.document_id,
             metadata=base_metadata,
-            chunks=chunks,
+            chunks=tuple(chunks),
         )
 
     def _chunk_elements(self, elements: list[object]) -> list[Chunk]:

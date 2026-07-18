@@ -10,13 +10,15 @@ from src.shared.configs.settings import Settings
 from src.shared.infra.database import Database
 from src.shared.infra.elasticsearch.client import Elasticsearch
 from src.shared.infra.embedding import EmbeddingModelFactory
-from src.shared.app.ports import IEmbeddingModel
+from src.shared.app.ports import IEmbeddingModel, IObjectStorage
+from src.shared.infra.object_storage import MinioObjectStorage
 
 
 @dataclass(frozen=True, slots=True)
 class AppContainer:
     settings: Settings
     database: Database
+    object_storage: IObjectStorage
     elasticsearch: Elasticsearch
     embedding_model: IEmbeddingModel
     ingest_document: IngestDocumentUseCase
@@ -35,9 +37,11 @@ def build_container(settings: Settings | None = None) -> AppContainer:
     configure_logging(resolved.logging)
 
     database = Database(resolved.database)
+    object_storage = MinioObjectStorage(resolved.object_storage)
     elasticsearch = Elasticsearch(resolved.elasticsearch)
     embedding_model = EmbeddingModelFactory.from_settings(resolved.embedding)
     ingest_document = IngestionComponentFactory.build_ingestion_use_case(
+        database=database,
         settings=resolved,
         elasticsearch=elasticsearch,
         embedder=embedding_model,
@@ -56,6 +60,7 @@ def build_container(settings: Settings | None = None) -> AppContainer:
     return AppContainer(
         settings=resolved,
         database=database,
+        object_storage=object_storage,
         elasticsearch=elasticsearch,
         embedding_model=embedding_model,
         ingest_document=ingest_document,
