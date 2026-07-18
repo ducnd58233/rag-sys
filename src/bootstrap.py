@@ -1,3 +1,5 @@
+import asyncio
+
 from dataclasses import dataclass
 
 from src.modules.generation import AnswerQuestionUseCase, GenerationComponentFactory
@@ -5,6 +7,7 @@ from src.modules.ingestion import IngestionComponentFactory, IngestDocumentUseCa
 from src.modules.retrieval import RetrievalComponentFactory, RetrieveUseCase
 from src.shared.configs.logger import configure_logging
 from src.shared.configs.settings import Settings
+from src.shared.infra.database import Database
 from src.shared.infra.elasticsearch.client import Elasticsearch
 from src.shared.infra.embedding import EmbeddingModelFactory
 from src.shared.app.ports import IEmbeddingModel
@@ -13,6 +16,7 @@ from src.shared.app.ports import IEmbeddingModel
 @dataclass(frozen=True, slots=True)
 class AppContainer:
     settings: Settings
+    database: Database
     elasticsearch: Elasticsearch
     embedding_model: IEmbeddingModel
     ingest_document: IngestDocumentUseCase
@@ -20,13 +24,17 @@ class AppContainer:
     answer_question: AnswerQuestionUseCase
 
     async def shutdown(self) -> None:
-        await self.elasticsearch.close()
+        await asyncio.gather(
+            self.elasticsearch.close(),
+            self.database.close(),
+        )
 
 
 def build_container(settings: Settings | None = None) -> AppContainer:
     resolved = settings or Settings()
     configure_logging(resolved.logging)
 
+    database = Database(resolved.database)
     elasticsearch = Elasticsearch(resolved.elasticsearch)
     embedding_model = EmbeddingModelFactory.from_settings(resolved.embedding)
     ingest_document = IngestionComponentFactory.build_ingestion_use_case(
@@ -47,6 +55,7 @@ def build_container(settings: Settings | None = None) -> AppContainer:
 
     return AppContainer(
         settings=resolved,
+        database=database,
         elasticsearch=elasticsearch,
         embedding_model=embedding_model,
         ingest_document=ingest_document,

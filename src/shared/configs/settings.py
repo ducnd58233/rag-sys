@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -121,6 +121,29 @@ class RetrievalSettings(BaseSettings):
     rank_constant: int = Field(default=60, ge=1)
     min_fused_score: float | None = Field(default=None, ge=0.0)
 
+class DatabaseSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="DATABASE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    url: SecretStr = Field(default=SecretStr("postgresql+asyncpg://postgres:postgres@localhost:5432/rag-sys"))
+    echo: bool = Field(default=False)
+    pool_size: int = Field(default=10, ge=1)
+    max_overflow: int = Field(default=20, ge=0)
+
+class ObjectStorageSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="OBJECT_STORAGE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    endpoint: str = Field(default="http://localhost:9000")
+    access_key: SecretStr = Field(default="minioadmin")
+    secret_key: SecretStr = Field(default="minioadmin")
+    secure: bool = False
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -135,3 +158,5 @@ class Settings(BaseSettings):
     ingestion: IngestionSettings = Field(default_factory=IngestionSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     chat: ChatSettings = Field(default_factory=ChatSettings)
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    object_storage: ObjectStorageSettings = Field(default_factory=ObjectStorageSettings)
