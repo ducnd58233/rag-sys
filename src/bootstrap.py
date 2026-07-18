@@ -42,6 +42,7 @@ def build_container(settings: Settings | None = None) -> AppContainer:
     embedding_model = EmbeddingModelFactory.from_settings(resolved.embedding)
     ingest_document = IngestionComponentFactory.build_ingestion_use_case(
         database=database,
+        object_storage=object_storage,
         settings=resolved,
         elasticsearch=elasticsearch,
         embedder=embedding_model,

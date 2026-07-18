@@ -15,7 +15,7 @@ from src.modules.ingestion.infra.sources.object_storage_resolver import ObjectSt
 from src.shared.configs.settings import Settings
 from src.shared.infra.database import Database
 from src.shared.infra.elasticsearch.client import Elasticsearch
-from src.shared.app.ports import IEmbeddingModel
+from src.shared.app.ports import IEmbeddingModel, IObjectStorage
 
 __all__ = ["IngestionComponentFactory", "IngestDocumentUseCase"]
 
@@ -32,6 +32,7 @@ class IngestionComponentFactory:
     def build_ingestion_use_case(
         *,
         database: Database,
+        object_storage: IObjectStorage,
         settings: Settings,
         elasticsearch: Elasticsearch,
         embedder: IEmbeddingModel,
@@ -39,7 +40,7 @@ class IngestionComponentFactory:
         ingestion = settings.ingestion
         doc_uow = SqlAlchemyDocumentUnitOfWork(database.session_factory)
         source_resolver = ObjectStorageSourceResolver(
-            storage=settings.object_storage,
+            storage=object_storage,
             max_file_size_bytes=ingestion.max_file_size_bytes,
         )
         processor = DocumentProcessorFactory.create(ingestion)
