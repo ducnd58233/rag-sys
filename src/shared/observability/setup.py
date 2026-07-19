@@ -208,4 +208,36 @@ def _histogram_views() -> list[View]:
             instrument_name="rag.generation.ask.citations",
             aggregation=ExplicitBucketHistogramAggregation((1, 2, 4, 8, 16, 32)),
         ),
+        View(
+            instrument_name="rag.generation.query_analysis.duration",
+            aggregation=ExplicitBucketHistogramAggregation(
+                (0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+            ),
+        ),
+        View(
+            instrument_name="rag.generation.retrieval_query.duration",
+            aggregation=ExplicitBucketHistogramAggregation(
+                (0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+            ),
+        ),
+        View(
+            instrument_name="rag.generation.context_merge.duration",
+            aggregation=ExplicitBucketHistogramAggregation(
+                (0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5),
+            ),
+        ),
+        View(
+            instrument_name="rag.generation.ask.subquestions",
+            aggregation=ExplicitBucketHistogramAggregation((0, 1, 2, 3, 4, 5)),
+        ),
+        View(
+            instrument_name="rag.generation.ask.retrieval_queries",
+            aggregation=ExplicitBucketHistogramAggregation((1, 2, 3, 4, 5, 6)),
+        ),
+        View(
+            instrument_name="rag.generation.ask.contexts",
+            aggregation=ExplicitBucketHistogramAggregation(
+                (0, 1, 2, 4, 8, 12, 16, 24, 32),
+            ),
+        ),
     ]

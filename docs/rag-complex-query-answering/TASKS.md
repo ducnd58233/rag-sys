@@ -143,20 +143,22 @@
 
 ## Task 6: Add Metrics and Traces for Complex RAG
 
+**Status:** Code complete; runtime trace check pending Task 7
+
 **Description:** Add spans and metrics for query analysis, retrieval fan-out, context merge, and answer synthesis. Update dashboard panels to distinguish `single_hop` and `decomposed` traffic.
 
 **Acceptance criteria:**
-- [ ] Spans include `generation.query_analysis`, `generation.retrieve.original`, `generation.retrieve.subquestion`, `generation.context_merge`, and `generation.answer_synthesis`.
-- [ ] Ask metrics include bounded `strategy` labels.
-- [ ] New metrics count sub-questions, retrieval queries, merged contexts, and strategy outcomes.
-- [ ] Dashboard can show latency and volume by strategy.
+- [x] Spans include `generation.query_analysis`, `generation.retrieve.original`, `generation.retrieve.subquestion`, `generation.context_merge`, and `generation.answer_synthesis`.
+- [x] Ask metrics include bounded `strategy` labels.
+- [x] New metrics count sub-questions, retrieval queries, merged contexts, and strategy outcomes.
+- [x] Dashboard can show latency and volume by strategy.
 
 **Verification:**
-- [ ] Compile check: `uv run python -m compileall src`
-- [ ] Dashboard JSON parse check.
-- [ ] Compose config check: `docker compose -f deployments/observability/docker-compose.observability.yml -f deployments/observability/docker-compose.langfuse.yml --profile llm config -q`
+- [x] Compile check: `uv run python -m compileall src`
+- [x] Dashboard JSON parse check.
+- [x] Compose config check: `docker compose -f deployments/observability/docker-compose.observability.yml -f deployments/observability/docker-compose.langfuse.yml --profile llm config -q`
 - [ ] Manual trace check in Grafana/Tempo after one complex ask.
-- [ ] No `tests/` directory is added.
+- [x] No `tests/` directory is added.
 
 **Dependencies:** Task 4
 

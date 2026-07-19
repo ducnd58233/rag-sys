@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
-import time
 import asyncio
+import time
 from collections.abc import Sequence
 
 from opentelemetry import trace
@@ -20,8 +20,14 @@ from src.shared.app.ports.chat import IChatModel
 from src.shared.configs.settings import ChatSettings
 from src.shared.observability.metrics import (
     generation_ask_citations,
+    generation_ask_contexts,
     generation_ask_duration,
+    generation_ask_retrieval_queries,
     generation_ask_responses,
+    generation_ask_subquestions,
+    generation_context_merge_duration,
+    generation_query_analysis_duration,
+    generation_retrieval_query_duration,
 )
 
 logger = logging.getLogger(__name__)
@@ -78,6 +84,7 @@ class AnswerQuestionUseCase:
         started_at = time.perf_counter()
         outcome = "failure"
         citation_count = 0
+        strategy = "single_hop"
         query = request.query.strip()
         with _tracer.start_as_current_span("generation.ask") as span:
             try:
@@ -103,6 +110,7 @@ class AnswerQuestionUseCase:
                 span.set_attribute("rag.retrieval.top_k", top_k)
 
                 query_plan = await self._build_query_plan(query)
+                strategy = query_plan.strategy
                 span.set_attribute("rag.ask.strategy", query_plan.strategy)
                 span.set_attribute(
                     "rag.query.subquestion_count",
@@ -127,18 +135,25 @@ class AnswerQuestionUseCase:
                         refused=True,
                     )
 
-                system, user = self._prompt.build(
-                    query,
-                    contexts,
-                    sub_questions=query_plan.sub_questions,
-                )
-                structured = await self._chat.complete_structured(
-                    system=system,
-                    user=user,
-                    schema=GroundedAnswerSchema,
-                    temperature=self._chat_settings.temperature,
-                    max_tokens=self._chat_settings.max_tokens,
-                )
+                with _tracer.start_as_current_span(
+                    "generation.answer_synthesis",
+                    attributes={
+                        "rag.ask.strategy": strategy,
+                        "rag.context.count": len(contexts),
+                    },
+                ):
+                    system, user = self._prompt.build(
+                        query,
+                        contexts,
+                        sub_questions=query_plan.sub_questions,
+                    )
+                    structured = await self._chat.complete_structured(
+                        system=system,
+                        user=user,
+                        schema=GroundedAnswerSchema,
+                        temperature=self._chat_settings.temperature,
+                        max_tokens=self._chat_settings.max_tokens,
+                    )
 
                 if structured.refused:
                     outcome = "refused_model"
@@ -189,18 +204,46 @@ class AnswerQuestionUseCase:
                 span.set_attribute("rag.ask.outcome", outcome)
                 generation_ask_duration.record(
                     time.perf_counter() - started_at,
-                    {"outcome": outcome},
+                    {"outcome": outcome, "strategy": strategy},
                 )
-                generation_ask_responses.add(1, {"outcome": outcome})
+                generation_ask_responses.add(
+                    1,
+                    {"outcome": outcome, "strategy": strategy},
+                )
                 generation_ask_citations.record(
                     citation_count,
-                    {"outcome": outcome},
+                    {"outcome": outcome, "strategy": strategy},
                 )
 
     async def _build_query_plan(self, query: str) -> QueryPlan:
-        if not self._chat_settings.complex_rag_enabled:
-            return QueryPlan.single_hop(reason="complex_rag_disabled")
-        return await self._query_analyzer.analyze(query)
+        started_at = time.perf_counter()
+        outcome = "success"
+        with _tracer.start_as_current_span("generation.query_analysis") as span:
+            try:
+                if not self._chat_settings.complex_rag_enabled:
+                    outcome = "disabled"
+                    plan = QueryPlan.single_hop(reason="complex_rag_disabled")
+                else:
+                    plan = await self._query_analyzer.analyze(query)
+                span.set_attribute("rag.ask.strategy", plan.strategy)
+                span.set_attribute(
+                    "rag.query.subquestion_count",
+                    len(plan.sub_questions),
+                )
+                generation_ask_subquestions.record(
+                    len(plan.sub_questions),
+                    {"strategy": plan.strategy},
+                )
+                return plan
+            except Exception as error:
+                outcome = "failure"
+                span.set_status(Status(StatusCode.ERROR, error.__class__.__name__))
+                raise
+            finally:
+                generation_query_analysis_duration.record(
+                    time.perf_counter() - started_at,
+                    {"outcome": outcome},
+                )
 
     async def _retrieve_contexts(
         self,
@@ -213,13 +256,24 @@ class AnswerQuestionUseCase:
         document_version_id: int | None,
     ) -> Sequence[ContextChunk]:
         if not query_plan.is_complex:
-            return await self._retriever.retrieve(
+            generation_ask_retrieval_queries.record(
+                1,
+                {"strategy": query_plan.strategy},
+            )
+            trace.get_current_span().set_attribute("rag.retrieval.query_count", 1)
+            result_set = await self._retrieve_context_set(
                 query,
+                query_kind="original",
                 org_id=org_id,
                 top_k=top_k,
                 document_id=document_id,
                 document_version_id=document_version_id,
             )
+            generation_ask_contexts.record(
+                len(result_set.contexts),
+                {"strategy": query_plan.strategy},
+            )
+            return result_set.contexts
 
         final_top_k = (
             top_k
@@ -233,6 +287,14 @@ class AnswerQuestionUseCase:
         retrieval_queries = query_plan.retrieval_queries(
             query,
             max_queries=self._chat_settings.complex_rag_max_retrieval_queries,
+        )
+        generation_ask_retrieval_queries.record(
+            len(retrieval_queries),
+            {"strategy": query_plan.strategy},
+        )
+        trace.get_current_span().set_attribute(
+            "rag.retrieval.query_count",
+            len(retrieval_queries),
         )
 
         result_sets = await asyncio.gather(
@@ -248,10 +310,36 @@ class AnswerQuestionUseCase:
                 for index, retrieval_query in enumerate(retrieval_queries)
             ),
         )
-        return self._context_merger.merge(
-            result_sets,
-            final_top_k=final_top_k,
-        ).contexts
+        started_at = time.perf_counter()
+        with _tracer.start_as_current_span(
+            "generation.context_merge",
+            attributes={
+                "rag.ask.strategy": query_plan.strategy,
+                "rag.retrieval.query_count": len(retrieval_queries),
+            },
+        ) as span:
+            merge_result = self._context_merger.merge(
+                result_sets,
+                final_top_k=final_top_k,
+            )
+            span.set_attribute(
+                "rag.context.input_count",
+                merge_result.input_context_count,
+            )
+            span.set_attribute(
+                "rag.context.deduplicated_count",
+                merge_result.deduplicated_count,
+            )
+            span.set_attribute("rag.context.count", len(merge_result.contexts))
+            generation_context_merge_duration.record(
+                time.perf_counter() - started_at,
+                {"strategy": query_plan.strategy},
+            )
+            generation_ask_contexts.record(
+                len(merge_result.contexts),
+                {"strategy": query_plan.strategy},
+            )
+            return merge_result.contexts
 
     async def _retrieve_context_set(
         self,
@@ -263,15 +351,35 @@ class AnswerQuestionUseCase:
         document_id: int | None,
         document_version_id: int | None,
     ) -> RetrievedContextSet:
-        contexts = await self._retriever.retrieve(
-            query,
-            org_id=org_id,
-            top_k=top_k,
-            document_id=document_id,
-            document_version_id=document_version_id,
-        )
-        return RetrievedContextSet(
-            query=query,
-            query_kind=query_kind,
-            contexts=contexts,
-        )
+        started_at = time.perf_counter()
+        outcome = "success"
+        with _tracer.start_as_current_span(
+            f"generation.retrieve.{query_kind}",
+            attributes={
+                "rag.retrieval.query_kind": query_kind,
+                "rag.retrieval.top_k": top_k,
+            },
+        ) as span:
+            try:
+                contexts = await self._retriever.retrieve(
+                    query,
+                    org_id=org_id,
+                    top_k=top_k,
+                    document_id=document_id,
+                    document_version_id=document_version_id,
+                )
+                span.set_attribute("rag.context.count", len(contexts))
+                return RetrievedContextSet(
+                    query=query,
+                    query_kind=query_kind,
+                    contexts=contexts,
+                )
+            except Exception as error:
+                outcome = "failure"
+                span.set_status(Status(StatusCode.ERROR, error.__class__.__name__))
+                raise
+            finally:
+                generation_retrieval_query_duration.record(
+                    time.perf_counter() - started_at,
+                    {"query_kind": query_kind, "outcome": outcome},
+                )

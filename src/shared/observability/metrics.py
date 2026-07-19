@@ -24,6 +24,30 @@ generation_ask_citations = _meter.create_histogram(
     "rag.generation.ask.citations",
     unit="{citation}",
 )
+generation_query_analysis_duration = _meter.create_histogram(
+    "rag.generation.query_analysis.duration",
+    unit="s",
+)
+generation_retrieval_query_duration = _meter.create_histogram(
+    "rag.generation.retrieval_query.duration",
+    unit="s",
+)
+generation_context_merge_duration = _meter.create_histogram(
+    "rag.generation.context_merge.duration",
+    unit="s",
+)
+generation_ask_subquestions = _meter.create_histogram(
+    "rag.generation.ask.subquestions",
+    unit="{question}",
+)
+generation_ask_retrieval_queries = _meter.create_histogram(
+    "rag.generation.ask.retrieval_queries",
+    unit="{query}",
+)
+generation_ask_contexts = _meter.create_histogram(
+    "rag.generation.ask.contexts",
+    unit="{context}",
+)
 messaging_publish_duration = _meter.create_histogram(
     "rag.messaging.publish.duration",
     unit="s",

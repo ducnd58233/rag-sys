@@ -42,7 +42,7 @@
       "id": 20, "title": "Ask p95 duration", "type": "timeseries",
       "gridPos": { "h": 6, "w": 6, "x": 0, "y": 8 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "slo:generation_ask_duration:p95", "legendFormat": "{{outcome}}" }],
+      "targets": [{ "expr": "slo:generation_ask_duration:p95", "legendFormat": "{{strategy}} {{outcome}}" }],
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
     },
     {
@@ -63,7 +63,7 @@
       "id": 23, "title": "Ask refusal ratio", "type": "timeseries",
       "gridPos": { "h": 6, "w": 6, "x": 18, "y": 8 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum(rate(rag_generation_ask_responses_total{outcome=~\"refused_.*\"}[5m])) / sum(rate(rag_generation_ask_responses_total[5m]))", "legendFormat": "refused" }],
+      "targets": [{ "expr": "sum by (strategy) (rate(rag_generation_ask_responses_total{outcome=~\"refused_.*\"}[5m])) / sum by (strategy) (rate(rag_generation_ask_responses_total[5m]))", "legendFormat": "{{strategy}}" }],
       "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
     },
     { "id": 6, "title": "Worker / Consumer", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 } },
