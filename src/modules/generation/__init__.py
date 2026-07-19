@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from src.modules.generation.app.query_analysis import QueryAnalyzer, QueryPlan
 from src.modules.generation.app.use_cases.answer_question import AnswerQuestionUseCase
 from src.modules.generation.domain.prompt import GroundedPromptBuilder
 from src.modules.generation.infra.retrieval_adapter import RetrieveUseCaseAdapter
@@ -13,6 +14,8 @@ __all__ = [
     "AnswerQuestionUseCase",
     "GenerationComponentFactory",
     "GenerationComponents",
+    "QueryAnalyzer",
+    "QueryPlan",
 ]
 
 

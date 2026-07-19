@@ -28,19 +28,21 @@
 
 ## Task 2: Add Query Analysis Component
 
+**Status:** Complete
+
 **Description:** Add a small query analyzer that returns whether the query is simple or decomposed, plus 2-5 self-contained sub-questions for complex queries. Use the existing chat model structured-output path. Fall back to single-hop if analysis fails.
 
 **Acceptance criteria:**
-- [ ] A new structured schema represents `is_complex`, `sub_questions`, and a short `reason`.
-- [ ] Analyzer includes the original query in downstream retrieval planning but not as a generated sub-question duplicate.
-- [ ] Empty, duplicate, and over-limit sub-questions are filtered deterministically.
-- [ ] Failure in analysis does not fail `/generation/ask`; it uses single-hop.
+- [x] A new structured schema represents `is_complex`, `sub_questions`, and a short `reason`.
+- [x] Analyzer includes the original query in downstream retrieval planning but not as a generated sub-question duplicate.
+- [x] Empty, duplicate, and over-limit sub-questions are filtered deterministically.
+- [x] Failure in analysis does not fail `/generation/ask`; it uses single-hop.
 
 **Verification:**
-- [ ] Compile check: `uv run python -m compileall src`
-- [ ] Import smoke for the new query analysis module.
-- [ ] Manual smoke can classify `How to calculate attention?` as simple and `What is transformers and how to calculate attention?` as complex.
-- [ ] No `tests/` directory is added.
+- [x] Compile check: `uv run python -m compileall src`
+- [x] Import smoke for the new query analysis module.
+- [x] Manual smoke can classify `How to calculate attention?` as simple and `What is transformers and how to calculate attention?` as complex.
+- [x] No `tests/` directory is added.
 
 **Dependencies:** Task 1
 

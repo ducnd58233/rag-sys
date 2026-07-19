@@ -12,3 +12,17 @@ class GroundedAnswerSchema(BaseModel):
         default_factory=list,
         description="1-based indices of supporting context chunks.",
     )
+
+
+class QueryAnalysisSchema(BaseModel):
+    is_complex: bool = Field(
+        description="True when the query has multiple distinct answer intents."
+    )
+    sub_questions: list[str] = Field(
+        default_factory=list,
+        description="Self-contained sub-questions for retrieval.",
+    )
+    reason: str = Field(
+        default="",
+        description="Short reason for the classification.",
+    )
