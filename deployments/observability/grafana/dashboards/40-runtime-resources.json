@@ -1,0 +1,42 @@
+{
+  "uid": "obs-runtime",
+  "title": "40 - Runtime / Resources",
+  "schemaVersion": 39,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["rag-sys", "resources"],
+  "panels": [
+    {
+      "id": 1, "title": "Process RSS/VMS by service", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "process_runtime_memory_bytes{type=\"rss\"}", "legendFormat": "{{service_name}} rss" },
+        { "expr": "process_runtime_memory_bytes{type=\"vms\"}", "legendFormat": "{{service_name}} vms" }
+      ]
+    },
+    {
+      "id": 2, "title": "Container memory vs limit", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "container_memory_usage_bytes{name!=\"\"}", "legendFormat": "{{name}} usage" },
+        { "expr": "container_spec_memory_limit_bytes{name!=\"\"}", "legendFormat": "{{name}} limit" }
+      ]
+    },
+    {
+      "id": 3, "title": "CPU utilization", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "rate(process_runtime_cpu_time_seconds_total[5m])", "legendFormat": "{{service_name}}" }]
+    },
+    {
+      "id": 4, "title": "GC collections", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "rate(process_runtime_gc_count_total[5m])", "legendFormat": "{{service_name}}" }]
+    }
+  ]
+}

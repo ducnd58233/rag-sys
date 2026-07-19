@@ -1,0 +1,51 @@
+groups:
+  - name: infra
+    rules:
+      - alert: ConsumerLagGrowing
+        expr: rag_messaging_consumer_lag > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Consumer lag above 100 for 10 minutes ({{ $labels.messaging_destination_name }})
+
+      - alert: DlqMessagesAppearing
+        expr: increase(rag_messaging_dlq_published_total[15m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: DLQ message published ({{ $labels.messaging_destination_name }})
+
+      - alert: IngestionStuck
+        expr: |
+          rate(rag_ingestion_step_duration_seconds_count[15m]) == 0
+          and
+          rag_messaging_consumer_lag > 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: Worker alive but not progressing while lag is nonzero
+
+      - alert: BrokerUnderReplicated
+        expr: kafka_server_replicamanager_underreplicatedpartitions > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kafka broker has under-replicated partitions
+
+      - alert: ProcessMemoryGrowth
+        expr: deriv(process_runtime_memory_bytes{type="rss"}[1h]) > 0
+        for: 6h
+        labels:
+          severity: warning
+        annotations:
+          summary: Sustained process RSS growth over 6h ({{ $labels.service_name }})
+
+      - alert: CollectorDropping
+        expr: rate(otelcol_processor_dropped_spans[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: OTel Collector is dropping spans

@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import logging
+import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from opentelemetry import trace
 
 from src.modules.document.app.ports import IDocumentUnitOfWork
 from src.modules.document.domain.models import (
@@ -26,8 +31,13 @@ from src.modules.ingestion.domain.models import (
     IngestionStatus,
 )
 from src.shared.app.ports import IEmbeddingModel
+from src.shared.observability.metrics import (
+    ingestion_document_size,
+    ingestion_step_duration,
+)
 
 logger = logging.getLogger(__name__)
+_tracer = trace.get_tracer(__name__)
 
 
 class IngestDocumentUseCase:
@@ -64,61 +74,72 @@ class IngestDocumentUseCase:
                 status=IngestionStatus.COMPLETED,
             )
 
-        try:
-            async with self._source_resolver.open(
-                source,
-            ) as document_source:
-                processed = await self._processor.process(
-                    document_source,
-                )
-
-            chunks = processed.chunks
-            vectors = (
-                await self._embedder.embed(
-                    [chunk.content for chunk in chunks],
-                )
-                if chunks
-                else []
+        with _tracer.start_as_current_span("ingestion.execute") as span:
+            span.set_attribute("document_version_id", source.document_version_id)
+            span.set_attribute("org_id", source.org_id)
+            ingestion_document_size.record(
+                source.size_bytes,
+                {"mime_type": source.mime_type},
             )
 
-            if len(vectors) != len(chunks):
-                raise IngestionInternalError(
-                    message=("Embedding count does not match chunk count"),
-                )
+            try:
+                async with self._step("resolve_and_process"):
+                    async with self._source_resolver.open(
+                        source,
+                    ) as document_source:
+                        processed = await self._processor.process(
+                            document_source,
+                        )
 
-            metadata = {
-                **processed.metadata,
-                "org_id": str(source.org_id),
-                "document_id": str(source.document_id.value),
-                "document_version_id": str(
-                    source.document_version_id,
-                ),
-                "version": str(source.version_no),
-                "filename": source.filename,
-                "mime_type": source.mime_type,
-            }
+                chunks = processed.chunks
+                async with self._step("embed"):
+                    vectors = (
+                        await self._embedder.embed(
+                            [chunk.content for chunk in chunks],
+                        )
+                        if chunks
+                        else []
+                    )
 
-            await self._vector_store.create_index_if_not_exists()
-            await self._vector_store.delete_by_document_id(
-                org_id=source.org_id,
-                document_id=source.document_id,
-            )
+                if len(vectors) != len(chunks):
+                    raise IngestionInternalError(
+                        message=("Embedding count does not match chunk count"),
+                    )
 
-            if chunks:
-                await self._vector_store.upsert(
-                    org_id=source.org_id,
-                    document_id=source.document_id,
-                    document_version_id=source.document_version_id,
-                    version_no=source.version_no,
-                    metadata=metadata,
-                    chunks=chunks,
-                    vectors=vectors,
-                )
+                metadata = {
+                    **processed.metadata,
+                    "org_id": str(source.org_id),
+                    "document_id": str(source.document_id.value),
+                    "document_version_id": str(
+                        source.document_version_id,
+                    ),
+                    "version": str(source.version_no),
+                    "filename": source.filename,
+                    "mime_type": source.mime_type,
+                }
 
-            await self._mark_indexed(request)
-        except Exception:
-            await self._mark_failed(request)
-            raise
+                async with self._step("index"):
+                    await self._vector_store.create_index_if_not_exists()
+                    await self._vector_store.delete_by_document_id(
+                        org_id=source.org_id,
+                        document_id=source.document_id,
+                    )
+
+                    if chunks:
+                        await self._vector_store.upsert(
+                            org_id=source.org_id,
+                            document_id=source.document_id,
+                            document_version_id=source.document_version_id,
+                            version_no=source.version_no,
+                            metadata=metadata,
+                            chunks=chunks,
+                            vectors=vectors,
+                        )
+
+                await self._mark_indexed(request)
+            except Exception:
+                await self._mark_failed(request)
+                raise
 
         return IngestDocumentResult(
             document_id=source.document_id.value,
@@ -127,6 +148,22 @@ class IngestDocumentUseCase:
             chunk_count=len(chunks),
             status=IngestionStatus.COMPLETED,
         )
+
+    @asynccontextmanager
+    async def _step(self, name: str) -> AsyncIterator[None]:
+        started_at = time.perf_counter()
+        outcome = "success"
+        with _tracer.start_as_current_span(f"ingestion.{name}"):
+            try:
+                yield
+            except Exception:
+                outcome = "failed"
+                raise
+            finally:
+                ingestion_step_duration.record(
+                    time.perf_counter() - started_at,
+                    {"step": name, "outcome": outcome},
+                )
 
     async def _load_source_and_mark_parsing(
         self,

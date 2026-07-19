@@ -11,7 +11,7 @@ from src.shared.infra.mq import AioKafkaConsumer
 
 
 async def _run() -> None:
-    container = build_container()
+    container = build_container(service_name="worker")
     await container.startup()
 
     consumer = AioKafkaConsumer(

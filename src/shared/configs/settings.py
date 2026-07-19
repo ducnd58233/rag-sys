@@ -12,7 +12,8 @@ class LoggingSettings(BaseSettings):
         extra="ignore",
     )
     level: str | None = Field(default="INFO")
-    format: str | None = Field(
+    formatter: str = Field(default="json")
+    text_format: str | None = Field(
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     datefmt: str | None = Field(default="%Y-%m-%d %H:%M:%S")
@@ -22,6 +23,24 @@ class LoggingSettings(BaseSettings):
     file_path: Path = Field(default=Path("logs/app.log"))
     file_max_bytes: int = Field(default=1_048_576, ge=1)
     file_backup_count: int = Field(default=5, ge=0)
+
+
+class ObservabilitySettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="OTEL_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    sdk_disabled: bool = Field(default=False)
+    exporter_otlp_endpoint: str = Field(default="http://localhost:4317")
+    service_version: str = Field(default="0.1.0")
+    environment: str = Field(default="local")
+    metric_export_interval_ms: int = Field(default=15_000, ge=1_000)
+
+    @property
+    def enabled(self) -> bool:
+        return not self.sdk_disabled
 
 
 class ElasticsearchSettings(BaseSettings):
@@ -224,3 +243,4 @@ class Settings(BaseSettings):
     snowflake: SnowflakeSettings = Field(default_factory=SnowflakeSettings)
     document: DocumentSettings = Field(default_factory=DocumentSettings)
     kafka: KafkaSettings = Field(default_factory=KafkaSettings)
+    observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)

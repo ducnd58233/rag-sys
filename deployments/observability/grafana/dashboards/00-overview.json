@@ -1,0 +1,76 @@
+{
+  "uid": "obs-overview",
+  "title": "00 - Overview",
+  "schemaVersion": 39,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["rag-sys", "overview"],
+  "panels": [
+    { "id": 1, "title": "API", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "id": 2, "title": "Request rate", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 1 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (http_route) (rate(http_server_request_duration_seconds_count[5m]))", "legendFormat": "{{http_route}}" }]
+    },
+    {
+      "id": 3, "title": "Error rate", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 1 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\"}[5m])) / sum(rate(http_server_request_duration_seconds_count[5m]))", "legendFormat": "error ratio" }]
+    },
+    {
+      "id": 4, "title": "p95 latency", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 1 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "slo:http_request_duration:p95", "legendFormat": "{{http_route}}" }]
+    },
+    { "id": 5, "title": "Worker / Ingestion", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 } },
+    {
+      "id": 6, "title": "Ingestion outcome rate", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (outcome) (rate(rag_ingestion_step_duration_seconds_count[5m]))", "legendFormat": "{{outcome}}" }]
+    },
+    {
+      "id": 7, "title": "Step p95 duration", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "slo:ingestion_step_duration:p95", "legendFormat": "{{step}}" }]
+    },
+    {
+      "id": 8, "title": "Consumer lag", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "rag_messaging_consumer_lag", "legendFormat": "partition {{partition}}" }]
+    },
+    { "id": 9, "title": "Broker", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 } },
+    {
+      "id": 10, "title": "Under-replicated partitions", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 15 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "kafka_server_replicamanager_underreplicatedpartitions", "legendFormat": "under-replicated" }]
+    },
+    {
+      "id": 11, "title": "Broker message rate", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 15 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (topic) (rate(kafka_server_brokertopicmetrics_messagesin_total[5m]))", "legendFormat": "{{topic}}" }]
+    },
+    { "id": 12, "title": "Producer / Consumer", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 } },
+    {
+      "id": 13, "title": "Publish rate by outcome", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 22 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (outcome) (rate(rag_messaging_publish_duration_seconds_count[5m]))", "legendFormat": "{{outcome}}" }]
+    },
+    {
+      "id": 14, "title": "Consume rate by outcome", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 22 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (outcome) (rate(rag_messaging_consume_duration_seconds_count[5m]))", "legendFormat": "{{outcome}}" }]
+    }
+  ]
+}

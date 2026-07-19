@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
 from src.modules.document import (
     CompleteDocumentUploadUseCase,
     CreateDocumentUploadUrlUseCase,
@@ -25,11 +27,13 @@ from src.shared.infra.embedding import EmbeddingModelFactory
 from src.shared.infra.id_generator import SnowflakeIdGenerator
 from src.shared.infra.mq import AioKafkaPublisher
 from src.shared.infra.object_storage import MinioObjectStorage
+from src.shared.observability import Observability, setup_observability
 
 
 @dataclass(frozen=True, slots=True)
 class AppContainer:
     settings: Settings
+    observability: Observability
     database: Database
     object_storage: IObjectStorage
     elasticsearch: Elasticsearch
@@ -50,16 +54,28 @@ class AppContainer:
             self.elasticsearch.close(),
             self.database.close(),
             self.kafka_publisher.close(),
+            self.observability.shutdown(),
         )
 
 
 def build_container(
     settings: Settings | None = None,
+    *,
+    service_name: str = "api",
 ) -> AppContainer:
     resolved = settings or Settings()
-    configure_logging(resolved.logging)
+    observability = setup_observability(
+        resolved.observability,
+        service_name=service_name,
+    )
+    configure_logging(resolved.logging, service_name=service_name)
 
     database = Database(resolved.database)
+    if resolved.observability.enabled:
+        SQLAlchemyInstrumentor().instrument(
+            engine=database.engine.sync_engine,
+            enable_commenter=False,
+        )
     object_storage = MinioObjectStorage(
         resolved.object_storage,
     )
@@ -102,6 +118,7 @@ def build_container(
 
     return AppContainer(
         settings=resolved,
+        observability=observability,
         database=database,
         object_storage=object_storage,
         elasticsearch=elasticsearch,

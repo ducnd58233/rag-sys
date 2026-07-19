@@ -1,0 +1,32 @@
+groups:
+  - name: slo-api-burn
+    rules:
+      - alert: ApiErrorBudgetFastBurn
+        expr: |
+          (1 - slo:http_availability:ratio_rate5m) > (14.4 * 0.005)
+          and
+          (1 - slo:http_availability:ratio_rate1h) > (14.4 * 0.005)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: API error budget burning fast ({{ $labels.service_name }})
+
+      - alert: ApiErrorBudgetSlowBurn
+        expr: |
+          (1 - slo:http_availability:ratio_rate30m) > (6 * 0.005)
+          and
+          (1 - slo:http_availability:ratio_rate6h) > (6 * 0.005)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: API error budget burning slowly ({{ $labels.service_name }})
+
+      - alert: ApiLatencySLOBreach
+        expr: slo:http_request_duration:p95 > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: API p95 latency above 500ms target ({{ $labels.http_route }})

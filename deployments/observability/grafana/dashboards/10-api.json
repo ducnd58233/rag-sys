@@ -1,0 +1,46 @@
+{
+  "uid": "obs-api",
+  "title": "10 - API",
+  "schemaVersion": 39,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["rag-sys", "api"],
+  "panels": [
+    {
+      "id": 1, "title": "Request rate by route", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (http_route) (rate(http_server_request_duration_seconds_count[5m]))", "legendFormat": "{{http_route}}" }]
+    },
+    {
+      "id": 2, "title": "Status code breakdown", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (http_response_status_code) (rate(http_server_request_duration_seconds_count[5m]))", "legendFormat": "{{http_response_status_code}}" }]
+    },
+    {
+      "id": 3, "title": "p50 / p95 / p99 latency", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m])))", "legendFormat": "p50" },
+        { "expr": "slo:http_request_duration:p95", "legendFormat": "p95" },
+        { "expr": "slo:http_request_duration:p99", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 4, "title": "Slowest routes (p95)", "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "topk(10, slo:http_request_duration:p95)", "format": "table", "instant": true }]
+    },
+    {
+      "id": 5, "title": "Request duration with exemplars", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, http_route) (rate(http_server_request_duration_seconds_bucket[5m])))", "legendFormat": "{{http_route}}", "exemplar": true }]
+    }
+  ]
+}
