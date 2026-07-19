@@ -10,26 +10,22 @@ from src.modules.generation.api.schemas import (
 )
 from src.modules.generation.app.dto import AskRequest
 from src.shared.http.deps import get_container
-from src.shared.http.errors import ErrorResponse
 
 router = APIRouter(prefix="/generation", tags=["generation"])
 
-_ERROR_RESPONSES: dict[int, dict[str, object]] = {
-    422: {"model": ErrorResponse, "description": "Validation failed"},
-    500: {"model": ErrorResponse, "description": "Internal server error"},
-}
 
-
-@router.post("/ask", response_model=AskResponse, responses=_ERROR_RESPONSES)
+@router.post("/ask", response_model=AskResponse)
 async def ask(
     body: AskRequestBody,
     container: AppContainer = Depends(get_container),
 ) -> AskResponse:
     result = await container.answer_question.execute(
         AskRequest(
+            org_id=body.org_id,
             query=body.query,
             top_k=body.top_k,
             document_id=body.document_id,
+            document_version_id=body.document_version_id,
         ),
     )
     return AskResponse(

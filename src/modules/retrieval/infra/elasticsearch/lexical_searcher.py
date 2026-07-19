@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 import logging
+from collections.abc import Sequence
+
+from src.modules.retrieval.app.dto import RetrievalFilter
 from src.modules.retrieval.domain.errors import RetrievalInternalError
 from src.modules.retrieval.domain.models import HitChunk
+from src.modules.retrieval.infra.elasticsearch.helper import (
+    _metadata_as_str_map,
+    build_filter_clauses,
+)
 from src.shared.configs.settings import ElasticsearchSettings
 from src.shared.infra.elasticsearch.client import Elasticsearch
-from src.modules.retrieval.infra.elasticsearch.helper import _metadata_as_str_map
 
 logger = logging.getLogger(__name__)
+
 
 class ElasticsearchLexicalSearcher:
     def __init__(self, es: Elasticsearch, settings: ElasticsearchSettings) -> None:
@@ -20,13 +26,8 @@ class ElasticsearchLexicalSearcher:
         query: str,
         *,
         limit: int,
-        document_id: str | None = None,
+        filters: RetrievalFilter,
     ) -> Sequence[HitChunk]:
-        filters = []
-        if document_id:
-            filters.append({"term": {"document_id": document_id}})
-        
-
         try:
             response = await self._client.search(
                 index=self._index,
@@ -43,10 +44,17 @@ class ElasticsearchLexicalSearcher:
                                 }
                             }
                         ],
-                        "filter": filters,
+                        "filter": build_filter_clauses(filters),
                     }
                 },
-                source=["chunk_id", "document_id", "content", "metadata"],
+                source={
+                    "includes": [
+                        "chunk_id",
+                        "document_id",
+                        "content",
+                        "metadata",
+                    ],
+                },
             )
         except Exception as e:
             raise RetrievalInternalError(f"lexical search failed: {e}") from e
@@ -56,13 +64,15 @@ class ElasticsearchLexicalSearcher:
 
         for hit in hits:
             src = hit.get("_source", {})
-            results.append(HitChunk(
-                chunk_id=src.get("chunk_id", hit.get("_id", "")),
-                document_id=src.get("document_id", ""),
-                content=src.get("content", ""),
-                score=float(hit.get("_score", 0.0)),
-                metadata=_metadata_as_str_map(src.get("metadata", {})),
-            ))
+            results.append(
+                HitChunk(
+                    chunk_id=src.get("chunk_id", hit.get("_id", "")),
+                    document_id=src.get("document_id", ""),
+                    content=src.get("content", ""),
+                    score=float(hit.get("_score", 0.0)),
+                    metadata=_metadata_as_str_map(src.get("metadata", {})),
+                )
+            )
 
         logger.info(
             "lexical search results: %d hits",

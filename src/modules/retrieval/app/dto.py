@@ -1,14 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalFilter:
+    org_id: int
+    document_id: int | None = None
+    document_version_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class RetrieveRequest:
     query: str
+    filters: RetrievalFilter
     top_k: int | None = None
-    document_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

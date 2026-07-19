@@ -1,7 +1,9 @@
 from collections.abc import Sequence
 from typing import Protocol
 
+from src.modules.retrieval.app.dto import RetrievalFilter
 from src.modules.retrieval.domain.models import HitChunk
+
 
 class ILexicalSearcher(Protocol):
     async def search(
@@ -9,8 +11,9 @@ class ILexicalSearcher(Protocol):
         query: str,
         *,
         limit: int,
-        document_id: str | None = None,
+        filters: RetrievalFilter,
     ) -> Sequence[HitChunk]: ...
+
 
 class IDenseSearcher(Protocol):
     async def search(
@@ -19,8 +22,9 @@ class IDenseSearcher(Protocol):
         *,
         limit: int,
         num_candidates: int,
-        document_id: str | None = None,
+        filters: RetrievalFilter,
     ) -> Sequence[HitChunk]: ...
+
 
 class IRankFusion(Protocol):
     def fuse(
@@ -29,4 +33,3 @@ class IRankFusion(Protocol):
         *,
         top_k: int,
     ) -> tuple[HitChunk, ...]: ...
-

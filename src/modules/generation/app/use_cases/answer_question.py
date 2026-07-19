@@ -58,17 +58,23 @@ class AnswerQuestionUseCase:
         query = request.query.strip()
         if not query:
             raise GenerationValidationError("query cannot be empty")
+        if request.org_id <= 0:
+            raise GenerationValidationError(
+                "org_id must be greater than 0",
+            )
 
         top_k = (
-            request.top_k
-            if request.top_k is not None
-            else self._chat_settings.top_k
+            request.top_k if request.top_k is not None else self._chat_settings.top_k
         )
         if top_k < 1:
             raise GenerationValidationError("top_k must be greater than 0")
 
         contexts = await self._retriever.retrieve(
-            query, top_k=top_k, document_id=request.document_id
+            query,
+            org_id=request.org_id,
+            top_k=top_k,
+            document_id=request.document_id,
+            document_version_id=request.document_version_id,
         )
         if not contexts:
             return AskResult(

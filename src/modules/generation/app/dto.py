@@ -6,9 +6,11 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class AskRequest:
+    org_id: int
     query: str
     top_k: int | None = None
-    document_id: str | None = None
+    document_id: int | None = None
+    document_version_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

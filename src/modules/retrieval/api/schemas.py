@@ -4,9 +4,11 @@ from pydantic import BaseModel, Field
 
 
 class RetrieveRequestBody(BaseModel):
+    org_id: int = Field(gt=0)
     query: str = Field(min_length=1)
     top_k: int | None = Field(default=None, ge=1, le=100)
-    document_id: str | None = None
+    document_id: int | None = Field(default=None, gt=0)
+    document_version_id: int | None = Field(default=None, gt=0)
 
 
 class RetrievedChunkResponse(BaseModel):
