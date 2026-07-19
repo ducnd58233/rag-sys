@@ -22,9 +22,13 @@ from src.modules.document.infra.persistence.repo import (
 
 @dataclass(frozen=True, slots=True)
 class SqlAlchemyDocumentTransaction(IDocumentTransaction):
+    _session: AsyncSession
     documents: IDocumentRepository
     document_versions: IDocumentVersionRepository
     stored_objects: IStoredObjectRepository
+
+    async def flush(self) -> None:
+        await self._session.flush()
 
 
 class SqlAlchemyDocumentUnitOfWork(IDocumentUnitOfWork):
@@ -36,6 +40,7 @@ class SqlAlchemyDocumentUnitOfWork(IDocumentUnitOfWork):
         async with self._session_factory() as session:
             async with session.begin():
                 yield SqlAlchemyDocumentTransaction(
+                    _session=session,
                     documents=SqlAlchemyDocumentRepository(session),
                     document_versions=SqlAlchemyDocumentVersionRepository(session),
                     stored_objects=SqlAlchemyStoredObjectRepository(session),

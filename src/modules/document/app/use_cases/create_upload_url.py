@@ -86,6 +86,7 @@ class CreateDocumentUploadUrlUseCase:
                     created_by=request.user_id,
                 ),
             )
+            await transaction.flush()
             await transaction.document_versions.create(
                 DocumentVersionRecord(
                     id=document_version_id,

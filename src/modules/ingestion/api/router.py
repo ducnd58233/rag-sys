@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends
 
 from src.bootstrap import AppContainer
 from src.modules.ingestion.api.schemas import (
+    CreateIngestionRequestBody,
     IngestDocumentResponse,
-    StartIngestionRequestBody,
 )
 from src.modules.ingestion.app.dto import IngestDocumentRequest
 from src.shared.http.deps import get_container
@@ -12,18 +12,17 @@ router = APIRouter(tags=["ingestions"])
 
 
 @router.post(
-    "/document-versions/{document_version_id}/ingestions",
+    "/ingestions",
     response_model=IngestDocumentResponse,
 )
-async def ingest_document(
-    body: StartIngestionRequestBody,
-    document_version_id: int = Path(gt=0),
+async def create_ingestion(
+    body: CreateIngestionRequestBody,
     container: AppContainer = Depends(get_container),
 ) -> IngestDocumentResponse:
     result = await container.ingest_document.execute(
         IngestDocumentRequest(
             org_id=body.org_id,
-            document_version_id=document_version_id,
+            document_version_id=body.document_version_id,
         ),
     )
     return IngestDocumentResponse(

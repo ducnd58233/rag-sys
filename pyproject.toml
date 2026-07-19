@@ -20,6 +20,7 @@ dependencies = [
     "pydantic-settings>=2.14.2",
     "snowflake-id>=1.0.2",
     "sqlalchemy>=2.0.51",
+    "unstructured-inference>=1.6.12,<2.0.0",
     "unstructured[docx,md,pdf]>=0.24.0",
     "uvicorn[standard]>=0.51.0",
 ]

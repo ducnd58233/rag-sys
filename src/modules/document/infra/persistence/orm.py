@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Float, Integer, String, Text
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.shared.infra.database.base import Base
@@ -29,8 +29,12 @@ class DocumentVersionRow(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     org_id: Mapped[int] = mapped_column(BigInteger)
-    document_id: Mapped[int] = mapped_column(BigInteger)
-    storage_object_id: Mapped[int] = mapped_column(BigInteger)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"),
+    )
+    storage_object_id: Mapped[int] = mapped_column(
+        ForeignKey("stored_objects.id"),
+    )
     version_no: Mapped[int] = mapped_column(Integer)
     filename: Mapped[str] = mapped_column(Text)
     mime_type: Mapped[str] = mapped_column(Text)

@@ -97,6 +97,8 @@ class IDocumentTransaction(Protocol):
     document_versions: IDocumentVersionRepository
     stored_objects: IStoredObjectRepository
 
+    async def flush(self) -> None: ...
+
 
 class IDocumentUnitOfWork(Protocol):
     def begin(
