@@ -24,6 +24,41 @@ After starting the API with `uv run app` or `uv run dev`, open:
 - ReDoc: http://localhost:8000/redoc
 - OpenAPI schema: http://localhost:8000/openapi.json
 
+## Complex RAG answering
+
+`/generation/ask` uses bounded query decomposition for compound questions when
+`CHAT_COMPLEX_RAG_ENABLED=true`. Simple questions keep the single-hop path.
+
+Key local settings:
+
+```bash
+CHAT_TOP_K=8
+CHAT_COMPLEX_RAG_ENABLED=true
+CHAT_QUERY_DECOMPOSITION_MAX_SUBQUESTIONS=4
+CHAT_COMPLEX_RAG_MAX_RETRIEVAL_QUERIES=5
+CHAT_COMPLEX_RAG_PER_QUERY_TOP_K=6
+CHAT_COMPLEX_RAG_FINAL_TOP_K=12
+CHAT_COMPLEX_RAG_MAX_ITERATIONS=1
+```
+
+Manual smoke after ingesting Transformer source material:
+
+```powershell
+$body = @{
+  org_id = 1
+  query = "What is transformers and how to calculate attention?"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://localhost:8000/generation/ask `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+The answer should cover both Transformer architecture and scaled dot-product
+attention calculation, with citations for both supported parts.
+
 ## Dashboards
 
 - Grafana: http://localhost:3001

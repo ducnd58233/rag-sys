@@ -143,7 +143,7 @@
 
 ## Task 6: Add Metrics and Traces for Complex RAG
 
-**Status:** Code complete; runtime trace check pending Task 7
+**Status:** Code complete; runtime trace check pending running seeded stack
 
 **Description:** Add spans and metrics for query analysis, retrieval fan-out, context merge, and answer synthesis. Update dashboard panels to distinguish `single_hop` and `decomposed` traffic.
 
@@ -176,21 +176,23 @@
 
 ## Task 7: Update Docs and Run No-Pytest Verification
 
+**Status:** Docs/checks complete; runtime seeded-data check pending
+
 **Description:** Document the complex RAG settings, expected behavior, manual verification steps, and known limits. Run the allowed verification commands and capture manual evidence for PR review.
 
 **Acceptance criteria:**
-- [ ] README or observability docs mention complex RAG settings and dashboard panels.
-- [ ] Manual verification steps include the Transformer compound query.
-- [ ] PR notes include whether the answer covers both requested intents.
-- [ ] No new test files or `tests/` directory are created.
+- [x] README or observability docs mention complex RAG settings and dashboard panels.
+- [x] Manual verification steps include the Transformer compound query.
+- [x] PR notes include whether the answer covers both requested intents.
+- [x] No new test files or `tests/` directory are created.
 
 **Verification:**
-- [ ] Compile check: `uv run python -m compileall src`
-- [ ] Import smoke for changed modules.
-- [ ] Dashboard JSON parse check.
-- [ ] Compose config check.
-- [ ] Diff check: `git diff --check`
-- [ ] Manual `/generation/ask` check against seeded Transformer data.
+- [x] Compile check: `uv run python -m compileall src`
+- [x] Import smoke for changed modules.
+- [x] Dashboard JSON parse check.
+- [x] Compose config check.
+- [x] Diff check: `git diff --check`
+- [ ] Manual `/generation/ask` check against seeded Transformer data. Local API was not reachable during PR preparation.
 
 **Dependencies:** Tasks 1-6
 
@@ -222,6 +224,6 @@
 ## Checkpoint: After Tasks 6-7
 
 - [ ] Traces show every major complex RAG step.
-- [ ] Dashboard distinguishes `single_hop` and `decomposed`.
-- [ ] No-pytest verification commands pass.
-- [ ] Manual evidence is ready for review.
+- [x] Dashboard distinguishes `single_hop` and `decomposed`.
+- [x] No-pytest verification commands pass.
+- [x] Manual code-level evidence is ready for review.
