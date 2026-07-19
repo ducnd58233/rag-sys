@@ -27,4 +27,8 @@ class ChatModelFactory:
                 )
             case _:
                 raise ValueError(f"Unsupported chat provider: {settings.provider}")
-        return LangChainChatModel(client, model_name=settings.model)
+        return LangChainChatModel(
+            client,
+            model_name=settings.model,
+            provider_name=settings.provider.lower(),
+        )

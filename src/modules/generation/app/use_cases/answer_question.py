@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Sequence
+
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from src.modules.generation.app.dto import AskRequest, AskResult, CitationItem
 from src.modules.generation.app.llm_schema import GroundedAnswerSchema
@@ -11,8 +15,14 @@ from src.modules.generation.domain.models import ContextChunk
 from src.modules.generation.domain.prompt import REFUSAL_ANSWER, GroundedPromptBuilder
 from src.shared.app.ports.chat import IChatModel
 from src.shared.configs.settings import ChatSettings
+from src.shared.observability.metrics import (
+    generation_ask_citations,
+    generation_ask_duration,
+    generation_ask_responses,
+)
 
 logger = logging.getLogger(__name__)
+_tracer = trace.get_tracer(__name__)
 
 
 def _citations_from_indices(
@@ -55,77 +65,112 @@ class AnswerQuestionUseCase:
         self._prompt = prompt_builder or GroundedPromptBuilder()
 
     async def execute(self, request: AskRequest) -> AskResult:
+        started_at = time.perf_counter()
+        outcome = "failure"
+        citation_count = 0
         query = request.query.strip()
-        if not query:
-            raise GenerationValidationError("query cannot be empty")
-        if request.org_id <= 0:
-            raise GenerationValidationError(
-                "org_id must be greater than 0",
-            )
+        with _tracer.start_as_current_span("generation.ask") as span:
+            try:
+                if not query:
+                    outcome = "validation_error"
+                    raise GenerationValidationError("query cannot be empty")
+                if request.org_id <= 0:
+                    outcome = "validation_error"
+                    raise GenerationValidationError(
+                        "org_id must be greater than 0",
+                    )
 
-        top_k = (
-            request.top_k if request.top_k is not None else self._chat_settings.top_k
-        )
-        if top_k < 1:
-            raise GenerationValidationError("top_k must be greater than 0")
+                top_k = (
+                    request.top_k
+                    if request.top_k is not None
+                    else self._chat_settings.top_k
+                )
+                if top_k < 1:
+                    outcome = "validation_error"
+                    raise GenerationValidationError("top_k must be greater than 0")
 
-        contexts = await self._retriever.retrieve(
-            query,
-            org_id=request.org_id,
-            top_k=top_k,
-            document_id=request.document_id,
-            document_version_id=request.document_version_id,
-        )
-        if not contexts:
-            return AskResult(
-                query=query,
-                answer=REFUSAL_ANSWER,
-                citations=(),
-                refused=True,
-            )
+                span.set_attribute("rag.query.length", len(query))
+                span.set_attribute("rag.retrieval.top_k", top_k)
 
-        system, user = self._prompt.build(query, contexts)
-        structured = await self._chat.complete_structured(
-            system=system,
-            user=user,
-            schema=GroundedAnswerSchema,
-            temperature=self._chat_settings.temperature,
-            max_tokens=self._chat_settings.max_tokens,
-        )
+                contexts = await self._retriever.retrieve(
+                    query,
+                    org_id=request.org_id,
+                    top_k=top_k,
+                    document_id=request.document_id,
+                    document_version_id=request.document_version_id,
+                )
+                span.set_attribute("rag.context.count", len(contexts))
+                if not contexts:
+                    outcome = "refused_no_context"
+                    return AskResult(
+                        query=query,
+                        answer=REFUSAL_ANSWER,
+                        citations=(),
+                        refused=True,
+                    )
 
-        if structured.refused:
-            return AskResult(
-                query=query,
-                answer=REFUSAL_ANSWER,
-                citations=(),
-                refused=True,
-            )
+                system, user = self._prompt.build(query, contexts)
+                structured = await self._chat.complete_structured(
+                    system=system,
+                    user=user,
+                    schema=GroundedAnswerSchema,
+                    temperature=self._chat_settings.temperature,
+                    max_tokens=self._chat_settings.max_tokens,
+                )
 
-        citations = _citations_from_indices(structured.cited_indices, contexts)
-        if not citations:
-            logger.warning(
-                "answer without valid citations; refusing query_len=%d",
-                len(query),
-            )
-            return AskResult(
-                query=query,
-                answer=REFUSAL_ANSWER,
-                citations=(),
-                refused=True,
-            )
+                if structured.refused:
+                    outcome = "refused_model"
+                    return AskResult(
+                        query=query,
+                        answer=REFUSAL_ANSWER,
+                        citations=(),
+                        refused=True,
+                    )
 
-        answer = structured.answer.strip() or REFUSAL_ANSWER
-        if answer == REFUSAL_ANSWER:
-            return AskResult(
-                query=query,
-                answer=REFUSAL_ANSWER,
-                citations=(),
-                refused=True,
-            )
+                citations = _citations_from_indices(structured.cited_indices, contexts)
+                citation_count = len(citations)
+                span.set_attribute("rag.citation.count", citation_count)
+                if not citations:
+                    outcome = "refused_no_citations"
+                    logger.warning(
+                        "answer without valid citations; refusing query_len=%d",
+                        len(query),
+                    )
+                    return AskResult(
+                        query=query,
+                        answer=REFUSAL_ANSWER,
+                        citations=(),
+                        refused=True,
+                    )
 
-        return AskResult(
-            query=query,
-            answer=answer,
-            citations=citations,
-            refused=False,
-        )
+                answer = structured.answer.strip() or REFUSAL_ANSWER
+                if answer == REFUSAL_ANSWER:
+                    outcome = "refused_empty_answer"
+                    return AskResult(
+                        query=query,
+                        answer=REFUSAL_ANSWER,
+                        citations=(),
+                        refused=True,
+                    )
+
+                outcome = "answered"
+                return AskResult(
+                    query=query,
+                    answer=answer,
+                    citations=citations,
+                    refused=False,
+                )
+            except Exception as error:
+                span.set_status(Status(StatusCode.ERROR, error.__class__.__name__))
+                raise
+            finally:
+                span.set_attribute("rag.ask.outcome", outcome)
+                generation_ask_duration.record(
+                    time.perf_counter() - started_at,
+                    {"outcome": outcome},
+                )
+                generation_ask_responses.add(1, {"outcome": outcome})
+                generation_ask_citations.record(
+                    citation_count,
+                    {"outcome": outcome},
+                )

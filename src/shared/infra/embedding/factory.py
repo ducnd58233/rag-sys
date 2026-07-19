@@ -30,4 +30,5 @@ class EmbeddingModelFactory:
             client,
             dimensions=settings.dimensions,
             model_name=settings.model,
+            provider_name=settings.provider.lower(),
         )

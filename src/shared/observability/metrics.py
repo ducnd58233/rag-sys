@@ -4,6 +4,26 @@ from opentelemetry import metrics
 
 _meter = metrics.get_meter("rag-sys")
 
+gen_ai_client_operation_duration = _meter.create_histogram(
+    "gen_ai.client.operation.duration",
+    unit="s",
+)
+gen_ai_client_token_usage = _meter.create_histogram(
+    "gen_ai.client.token.usage",
+    unit="{token}",
+)
+generation_ask_duration = _meter.create_histogram(
+    "rag.generation.ask.duration",
+    unit="s",
+)
+generation_ask_responses = _meter.create_counter(
+    "rag.generation.ask.responses",
+    unit="{response}",
+)
+generation_ask_citations = _meter.create_histogram(
+    "rag.generation.ask.citations",
+    unit="{citation}",
+)
 messaging_publish_duration = _meter.create_histogram(
     "rag.messaging.publish.duration",
     unit="s",

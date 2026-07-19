@@ -1,0 +1,85 @@
+{
+  "uid": "obs-llm-rag",
+  "title": "70 - LLM / RAG Ask",
+  "schemaVersion": 39,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["rag-sys", "llm", "rag", "generation"],
+  "panels": [
+    {
+      "id": 1, "title": "Ask request rate by outcome", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (outcome) (rate(rag_generation_ask_responses_total[5m]))", "legendFormat": "{{outcome}}" }],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    },
+    {
+      "id": 2, "title": "Ask p95 duration", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "slo:generation_ask_duration:p95", "legendFormat": "{{outcome}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 3, "title": "Ask refusal ratio", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(rag_generation_ask_responses_total{outcome=~\"refused_.*\"}[5m])) / sum(rate(rag_generation_ask_responses_total[5m]))", "legendFormat": "refused" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+    },
+    {
+      "id": 4, "title": "LLM operation p95 / p99 latency", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 7 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "slo:gen_ai_client_operation_duration:p95", "legendFormat": "p95 {{gen_ai_operation_name}} {{gen_ai_request_model}}" },
+        { "expr": "slo:gen_ai_client_operation_duration:p99", "legendFormat": "p99 {{gen_ai_operation_name}} {{gen_ai_request_model}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 5, "title": "LLM error ratio", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 7 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(gen_ai_client_operation_duration_seconds_count{error_type=~\".+\"}[5m])) / sum(rate(gen_ai_client_operation_duration_seconds_count[5m]))", "legendFormat": "error ratio" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+    },
+    {
+      "id": 6, "title": "Token usage rate", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 14 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (gen_ai_token_type, gen_ai_request_model) (rate(gen_ai_client_token_usage_sum[5m]))", "legendFormat": "{{gen_ai_token_type}} {{gen_ai_request_model}}" }],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    },
+    {
+      "id": 7, "title": "Tokens per ask", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 14 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(gen_ai_client_token_usage_sum[5m])) / sum(rate(rag_generation_ask_responses_total[5m]))", "legendFormat": "tokens / ask" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 8, "title": "Citations per answered ask", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 21 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(rag_generation_ask_citations_sum{outcome=\"answered\"}[5m])) / sum(rate(rag_generation_ask_citations_count{outcome=\"answered\"}[5m]))", "legendFormat": "citations / answered ask" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 9, "title": "LLM and ask traces", "type": "traces",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 21 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "{ name =~ \"generation.ask|chat .*|embeddings .*\" }",
+          "queryType": "traceql",
+          "limit": 20,
+          "tableType": "traces"
+        }
+      ]
+    }
+  ]
+}
