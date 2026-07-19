@@ -1,21 +1,32 @@
 from __future__ import annotations
 
+import logging
 import re
 
 from src.modules.document.app.dto import CompleteUploadRequest, CompleteUploadResult
-from src.modules.document.app.ports import IDocumentUnitOfWork
+from src.modules.document.app.ports import (
+    IDocumentUnitOfWork,
+    IIngestionRequestPublisher,
+)
 from src.modules.document.domain.errors import (
     DocumentConflictError,
     DocumentInternalError,
     DocumentNotFoundError,
     DocumentValidationError,
 )
-from src.modules.document.domain.models import StoredObjectStatus
+from src.modules.document.domain.models import (
+    DocumentRecord,
+    DocumentVersionRecord,
+    StoredObjectStatus,
+)
+from src.shared.app.ports.message_queue import MessageQueueError
 from src.shared.app.ports.object_storage import (
     IObjectStorage,
     ObjectStorageError,
     StorageBucket,
 )
+
+logger = logging.getLogger(__name__)
 
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
@@ -26,9 +37,11 @@ class CompleteDocumentUploadUseCase:
         *,
         document_uow: IDocumentUnitOfWork,
         object_storage: IObjectStorage,
+        ingestion_publisher: IIngestionRequestPublisher,
     ) -> None:
         self._document_uow = document_uow
         self._object_storage = object_storage
+        self._ingestion_publisher = ingestion_publisher
 
     async def execute(
         self,
@@ -73,6 +86,8 @@ class CompleteDocumentUploadUseCase:
                 raise DocumentConflictError(
                     message="Upload was completed with another checksum",
                 )
+
+            await self._request_ingestion(document, version)
 
             return CompleteUploadResult(
                 document_id=document.id,
@@ -131,8 +146,29 @@ class CompleteDocumentUploadUseCase:
                 document_version_id=version.id,
             )
 
+        await self._request_ingestion(document, version)
+
         return CompleteUploadResult(
             document_id=document.id,
             document_version_id=version.id,
             version_no=version.version_no,
         )
+
+    async def _request_ingestion(
+        self,
+        document: DocumentRecord,
+        version: DocumentVersionRecord,
+    ) -> None:
+        try:
+            await self._ingestion_publisher.request_ingestion(
+                org_id=document.org_id,
+                document_id=document.id,
+                document_version_id=version.id,
+                version_no=version.version_no,
+            )
+        except MessageQueueError:
+            logger.warning(
+                "Could not publish ingestion request; "
+                "version stays UPLOADED for reconciliation",
+                extra={"document_version_id": version.id},
+            )

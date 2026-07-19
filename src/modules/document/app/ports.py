@@ -104,3 +104,14 @@ class IDocumentUnitOfWork(Protocol):
     def begin(
         self,
     ) -> AbstractAsyncContextManager[IDocumentTransaction]: ...
+
+
+class IIngestionRequestPublisher(Protocol):
+    async def request_ingestion(
+        self,
+        *,
+        org_id: int,
+        document_id: int,
+        document_version_id: int,
+        version_no: int,
+    ) -> None: ...
