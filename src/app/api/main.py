@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from src.bootstrap import build_container
 from src.shared.http.errors import register_exception_handlers
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
 
     register_middlewares(app)
     register_exception_handlers(app)
+    FastAPIInstrumentor.instrument_app(app)
     api_v1 = APIRouter(prefix="/api/v1")
 
     api_v1.include_router(router)

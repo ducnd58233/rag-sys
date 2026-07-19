@@ -1,0 +1,69 @@
+{
+  "uid": "obs-runtime",
+  "title": "40 - Runtime / Resources",
+  "schemaVersion": 39,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["rag-sys", "resources"],
+  "panels": [
+    {
+      "id": 1, "title": "Process RSS memory by service", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "process_memory_usage_bytes", "legendFormat": "{{service_name}} rss" },
+        { "expr": "process_runtime_memory_bytes{type=\"rss\"}", "legendFormat": "{{service_name}} runtime rss" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
+    },
+    {
+      "id": 2, "title": "Virtual memory by service", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "process_memory_virtual_bytes", "legendFormat": "{{service_name}} virtual" },
+        { "expr": "process_runtime_memory_bytes{type=\"vms\"}", "legendFormat": "{{service_name}} runtime vms" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
+    },
+    {
+      "id": 3, "title": "Container memory vs limit", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "container_memory_usage_bytes{name!=\"\"}", "legendFormat": "{{name}} usage" },
+        { "expr": "container_spec_memory_limit_bytes{name!=\"\"}", "legendFormat": "{{name}} limit" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
+    },
+    {
+      "id": 4, "title": "CPU utilization by service", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "process_cpu_utilization", "legendFormat": "{{service_name}} process" },
+        { "expr": "process_runtime_cpu_utilization", "legendFormat": "{{service_name}} runtime" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+    },
+    {
+      "id": 5, "title": "CPU time by service", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (service_name) (rate(process_runtime_cpu_time_seconds_total[5m]))", "legendFormat": "{{service_name}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 6, "title": "GC collections", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "rate(process_runtime_gc_count_total[5m])", "legendFormat": "{{service_name}} runtime" },
+        { "expr": "rate(cpython_gc_collections_total[5m])", "legendFormat": "{{service_name}} cpython" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    }
+  ]
+}

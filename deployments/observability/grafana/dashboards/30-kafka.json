@@ -1,0 +1,45 @@
+{
+  "uid": "obs-kafka",
+  "title": "30 - Kafka",
+  "schemaVersion": 39,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["rag-sys", "kafka"],
+  "panels": [
+    {
+      "id": 1, "title": "Under-replicated partitions", "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "kafka_server_replicamanager_underreplicatedpartitions" }]
+    },
+    {
+      "id": 2, "title": "Active controller count", "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "kafka_controller_kafkacontroller_activecontrollercount" }]
+    },
+    {
+      "id": 3, "title": "Broker request rate", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (request) (rate(kafka_network_requestmetrics_requests_total[5m]))", "legendFormat": "{{request}}" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 4, "title": "Per-topic message rate", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (topic) (rate(kafka_server_brokertopicmetrics_messagesin_total[5m]))", "legendFormat": "{{topic}}" }],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    },
+    {
+      "id": 5, "title": "Consumer group lag (app-side, authoritative)", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "rag_messaging_consumer_lag", "legendFormat": "{{consumer_group}} / p{{partition}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    }
+  ]
+}

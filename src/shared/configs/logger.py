@@ -3,23 +3,28 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from src.shared.configs.settings import LoggingSettings
+from src.shared.observability.logging import TraceContextJsonFormatter
 
 
-def configure_logging(config: LoggingSettings):
+def configure_logging(config: LoggingSettings, *, service_name: str):
     root = logging.getLogger()
     root.handlers.clear()
     root.setLevel(config.root_level or "INFO")
-    formatter = logging.Formatter(
-        config.format or logging.BASIC_FORMAT,
-        config.datefmt,
-    )
+    formatter: logging.Formatter
+    if config.formatter == "json":
+        formatter = TraceContextJsonFormatter(service_name=service_name)
+    else:
+        formatter = logging.Formatter(
+            config.text_format or logging.BASIC_FORMAT,
+            config.datefmt,
+        )
     for handler in config.handlers or []:
         if handler == "console":
             console_handler = logging.StreamHandler()
             console_handler.setFormatter(formatter)
             root.addHandler(console_handler)
         elif handler == "file":
-            file_path = Path(config.file_path)
+            file_path = Path(config.file_path).with_stem(service_name)
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_handler = RotatingFileHandler(
                 file_path,

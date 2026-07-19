@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol
 
@@ -25,6 +25,7 @@ class IncomingMessage:
     offset: int
     key: str | None
     payload: bytes
+    headers: Mapping[str, str] = field(default_factory=dict)
 
 
 class IMessagePublisher(Protocol):

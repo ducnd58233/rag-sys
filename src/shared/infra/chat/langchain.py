@@ -1,20 +1,38 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
 from typing import TypeVar
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from pydantic import BaseModel
 
 from src.shared.app.ports import ChatResult, IChatModel, ToolCall
+from src.shared.observability.metrics import (
+    gen_ai_client_operation_duration,
+    gen_ai_client_token_usage,
+    llm_tokens,
+)
 
 TSchema = TypeVar("TSchema", bound=BaseModel)
 
+_tracer = trace.get_tracer(__name__)
+
 
 class LangChainChatModel:
-    def __init__(self, client: BaseChatModel) -> None:
+    def __init__(
+        self,
+        client: BaseChatModel,
+        *,
+        model_name: str,
+        provider_name: str,
+    ) -> None:
         self._client = client
+        self._model_name = model_name
+        self._provider_name = provider_name
 
     def _bound(
         self,
@@ -41,9 +59,38 @@ class LangChainChatModel:
         max_tokens: int | None = None,
     ) -> ChatResult:
         model = self._bound(temperature=temperature, max_tokens=max_tokens)
-        message = await model.ainvoke(
-            [SystemMessage(content=system), HumanMessage(content=user)],
-        )
+        metric_attributes = self._metric_attributes("chat")
+        span_attributes = {
+            **metric_attributes,
+            "gen_ai.request.stream": False,
+        }
+        if max_tokens is not None:
+            span_attributes["gen_ai.request.max_tokens"] = max_tokens
+        if temperature is not None:
+            span_attributes["gen_ai.request.temperature"] = temperature
+
+        started_at = time.perf_counter()
+        with _tracer.start_as_current_span(
+            f"chat {self._model_name}",
+            attributes=span_attributes,
+        ) as span:
+            try:
+                message = await model.ainvoke(
+                    [SystemMessage(content=system), HumanMessage(content=user)],
+                )
+            except Exception as error:
+                error_type = error.__class__.__name__
+                span.set_status(Status(StatusCode.ERROR, error_type))
+                gen_ai_client_operation_duration.record(
+                    time.perf_counter() - started_at,
+                    {**metric_attributes, "error.type": error_type},
+                )
+                raise
+            gen_ai_client_operation_duration.record(
+                time.perf_counter() - started_at,
+                metric_attributes,
+            )
+            self._record_token_usage(message, operation_name="chat")
         content = (
             message.content
             if isinstance(message.content, str)
@@ -69,13 +116,95 @@ class LangChainChatModel:
         max_tokens: int | None = None,
     ) -> TSchema:
         model = self._bound(temperature=temperature, max_tokens=max_tokens)
-        structured = model.with_structured_output(schema, method="json_schema")
-        result = await structured.ainvoke(
-            [SystemMessage(content=system), HumanMessage(content=user)],
+        structured = model.with_structured_output(
+            schema,
+            method="json_schema",
+            include_raw=True,
         )
-        if isinstance(result, schema):
-            return result
-        return schema.model_validate(result)
+        metric_attributes = self._metric_attributes("chat")
+        span_attributes = {
+            **metric_attributes,
+            "gen_ai.output.type": "json",
+            "gen_ai.request.stream": False,
+        }
+        if max_tokens is not None:
+            span_attributes["gen_ai.request.max_tokens"] = max_tokens
+        if temperature is not None:
+            span_attributes["gen_ai.request.temperature"] = temperature
+
+        started_at = time.perf_counter()
+        with _tracer.start_as_current_span(
+            f"chat {self._model_name}",
+            attributes=span_attributes,
+        ) as span:
+            try:
+                result = await structured.ainvoke(
+                    [SystemMessage(content=system), HumanMessage(content=user)],
+                )
+                if result["parsing_error"] is not None:
+                    raise result["parsing_error"]
+            except Exception as error:
+                error_type = error.__class__.__name__
+                span.set_status(Status(StatusCode.ERROR, error_type))
+                gen_ai_client_operation_duration.record(
+                    time.perf_counter() - started_at,
+                    {**metric_attributes, "error.type": error_type},
+                )
+                raise
+            gen_ai_client_operation_duration.record(
+                time.perf_counter() - started_at,
+                metric_attributes,
+            )
+            self._record_token_usage(result["raw"], operation_name="chat")
+        parsed = result["parsed"]
+        if isinstance(parsed, schema):
+            return parsed
+        return schema.model_validate(parsed)
 
     def bind_tools(self, tools: Sequence[object]) -> IChatModel:
-        return LangChainChatModel(self._client.bind_tools(tools))
+        return LangChainChatModel(
+            self._client.bind_tools(tools),
+            model_name=self._model_name,
+            provider_name=self._provider_name,
+        )
+
+    def _metric_attributes(self, operation_name: str) -> dict[str, str]:
+        return {
+            "gen_ai.operation.name": operation_name,
+            "gen_ai.provider.name": self._provider_name,
+            "gen_ai.request.model": self._model_name,
+        }
+
+    def _record_token_usage(self, message: AIMessage, *, operation_name: str) -> None:
+        usage = getattr(message, "usage_metadata", None)
+        if not usage:
+            return
+        input_tokens = usage.get("input_tokens")
+        output_tokens = usage.get("output_tokens")
+        span = trace.get_current_span()
+        if input_tokens is not None:
+            span.set_attribute("gen_ai.usage.input_tokens", input_tokens)
+            llm_tokens.add(
+                input_tokens,
+                {"model": self._model_name, "direction": "input"},
+            )
+            gen_ai_client_token_usage.record(
+                input_tokens,
+                {
+                    **self._metric_attributes(operation_name),
+                    "gen_ai.token.type": "input",
+                },
+            )
+        if output_tokens is not None:
+            span.set_attribute("gen_ai.usage.output_tokens", output_tokens)
+            llm_tokens.add(
+                output_tokens,
+                {"model": self._model_name, "direction": "output"},
+            )
+            gen_ai_client_token_usage.record(
+                output_tokens,
+                {
+                    **self._metric_attributes(operation_name),
+                    "gen_ai.token.type": "output",
+                },
+            )

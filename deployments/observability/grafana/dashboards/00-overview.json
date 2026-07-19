@@ -1,0 +1,149 @@
+{
+  "uid": "obs-overview",
+  "title": "00 - Overview",
+  "schemaVersion": 39,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["rag-sys", "overview"],
+  "panels": [
+    { "id": 1, "title": "API", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "id": 2, "title": "Request rate by route", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 1 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (http_route) (rate(http_server_request_duration_seconds_count[5m]))", "legendFormat": "{{http_route}}" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 3, "title": "5xx error ratio", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 1 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\"}[5m])) / sum(rate(http_server_request_duration_seconds_count[5m]))", "legendFormat": "5xx ratio" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+    },
+    {
+      "id": 4, "title": "API p95 response time", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 1 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "slo:http_request_duration:p95", "legendFormat": "{{service_name}} {{http_route}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 5, "title": "API p99 latency", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 1 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "slo:http_request_duration:p99", "legendFormat": "{{service_name}} {{http_route}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    { "id": 19, "title": "LLM / RAG Ask", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 } },
+    {
+      "id": 20, "title": "Ask p95 duration", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "slo:generation_ask_duration:p95", "legendFormat": "{{outcome}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 21, "title": "LLM p95 latency", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "slo:gen_ai_client_operation_duration:p95", "legendFormat": "{{gen_ai_operation_name}} {{gen_ai_request_model}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 22, "title": "Token usage rate", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (gen_ai_token_type, gen_ai_request_model) (rate(gen_ai_client_token_usage_sum[5m]))", "legendFormat": "{{gen_ai_token_type}} {{gen_ai_request_model}}" }],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    },
+    {
+      "id": 23, "title": "Ask refusal ratio", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(rag_generation_ask_responses_total{outcome=~\"refused_.*\"}[5m])) / sum(rate(rag_generation_ask_responses_total[5m]))", "legendFormat": "refused" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+    },
+    { "id": 6, "title": "Worker / Consumer", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 } },
+    {
+      "id": 7, "title": "Worker consume rate", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 15 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (outcome) (rate(rag_messaging_consume_duration_seconds_count[5m]))", "legendFormat": "{{outcome}}" }],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    },
+    {
+      "id": 8, "title": "Worker consume p95 latency", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 15 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "slo:messaging_consume_duration:p95", "legendFormat": "{{messaging_destination_name}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 9, "title": "Ingestion step p95 duration", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 15 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "slo:ingestion_step_duration:p95", "legendFormat": "{{step}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 10, "title": "Consumer lag", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 15 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "rag_messaging_consumer_lag", "legendFormat": "{{messaging_destination_name}} p{{partition}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    { "id": 11, "title": "Runtime saturation", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 } },
+    {
+      "id": 12, "title": "Process RSS memory by service", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 22 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "process_memory_usage_bytes", "legendFormat": "{{service_name}} rss" },
+        { "expr": "process_runtime_memory_bytes{type=\"rss\"}", "legendFormat": "{{service_name}} runtime rss" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
+    },
+    {
+      "id": 13, "title": "Container memory vs limit", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 22 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "container_memory_usage_bytes{name!=\"\"}", "legendFormat": "{{name}} usage" },
+        { "expr": "container_spec_memory_limit_bytes{name!=\"\"}", "legendFormat": "{{name}} limit" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
+    },
+    {
+      "id": 14, "title": "Worker in-flight messages", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 22 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (messaging_destination_name, partition) (rag_messaging_consume_inflight)", "legendFormat": "{{messaging_destination_name}} p{{partition}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    { "id": 15, "title": "Producer / Broker", "type": "row", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 28 } },
+    {
+      "id": 16, "title": "Publish p95 latency", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 29 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "slo:messaging_publish_duration:p95", "legendFormat": "{{messaging_destination_name}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 17, "title": "Publish outcome rate", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 29 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (outcome) (rate(rag_messaging_publish_duration_seconds_count[5m]))", "legendFormat": "{{outcome}}" }],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    },
+    {
+      "id": 18, "title": "Broker message rate", "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 29 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (topic) (rate(kafka_server_brokertopicmetrics_messagesin_total[5m]))", "legendFormat": "{{topic}}" }],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
+    }
+  ]
+}

@@ -13,6 +13,7 @@ from src.shared.app.ports.message_queue import (
     Topic,
 )
 from src.shared.configs.settings import KafkaSettings
+from src.shared.observability.metrics import messaging_consumer_lag
 
 
 class AioKafkaConsumer:
@@ -24,6 +25,7 @@ class AioKafkaConsumer:
         group: ConsumerGroup,
     ) -> None:
         self._topic = topic
+        self._group = group
         self._consumer = _AIOKafkaConsumer(
             topic.value,
             bootstrap_servers=settings.bootstrap_servers,
@@ -59,6 +61,10 @@ class AioKafkaConsumer:
                 offset=record.offset,
                 key=record.key.decode("utf-8") if record.key is not None else None,
                 payload=record.value,
+                headers={
+                    header_key: header_value.decode("utf-8")
+                    for header_key, header_value in (record.headers or [])
+                },
             )
             for records in batches.values()
             for record in records
@@ -66,10 +72,22 @@ class AioKafkaConsumer:
 
     async def commit(self, message: IncomingMessage) -> None:
         partition = TopicPartition(message.topic, message.partition)
+        committed_offset = message.offset + 1
         try:
-            await self._consumer.commit({partition: message.offset + 1})
+            await self._consumer.commit({partition: committed_offset})
         except KafkaError as error:
             raise MessageQueueError("Could not commit offset") from error
+
+        high_water = self._consumer.highwater(partition)
+        if high_water is not None:
+            messaging_consumer_lag.set(
+                max(high_water - committed_offset, 0),
+                {
+                    "messaging.destination.name": message.topic,
+                    "partition": str(message.partition),
+                    "consumer.group": self._group.value,
+                },
+            )
 
     async def stop(self) -> None:
         await self._consumer.stop()

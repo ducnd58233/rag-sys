@@ -1,0 +1,68 @@
+{
+  "uid": "obs-traces",
+  "title": "60 - Request Traces",
+  "schemaVersion": 39,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["rag-sys", "traces", "tempo"],
+  "panels": [
+    {
+      "id": 1, "title": "Recent API traces", "type": "traces",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "{ resource.service.name = \"api\" }",
+          "queryType": "traceql",
+          "limit": 20,
+          "tableType": "traces"
+        }
+      ]
+    },
+    {
+      "id": 2, "title": "Slow request traces over 500ms", "type": "traces",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 10 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "{ resource.service.name = \"api\" && duration > 500ms }",
+          "queryType": "traceql",
+          "limit": 20,
+          "tableType": "traces"
+        }
+      ]
+    },
+    {
+      "id": 3, "title": "Worker traces", "type": "traces",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 10 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "{ resource.service.name = \"worker\" }",
+          "queryType": "traceql",
+          "limit": 20,
+          "tableType": "traces"
+        }
+      ]
+    },
+    {
+      "id": 4, "title": "Error traces", "type": "traces",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "{ status = error }",
+          "queryType": "traceql",
+          "limit": 20,
+          "tableType": "traces"
+        }
+      ]
+    }
+  ]
+}

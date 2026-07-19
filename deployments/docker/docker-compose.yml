@@ -123,14 +123,17 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka
     ports:
       - '9092:9092'
+      - '9999:9999'
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
       test:
         - CMD-SHELL
-        - /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list
+        - JMX_PORT= /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list
       interval: 10s
       timeout: 5s
       retries: 12

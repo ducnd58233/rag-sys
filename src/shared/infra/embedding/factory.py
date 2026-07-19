@@ -26,4 +26,9 @@ class EmbeddingModelFactory:
             case _:
                 raise ValueError(f"Unsupported embedding provider: {settings.provider}")
 
-        return LangChainEmbeddingModel(client, dimensions=settings.dimensions)
+        return LangChainEmbeddingModel(
+            client,
+            dimensions=settings.dimensions,
+            model_name=settings.model,
+            provider_name=settings.provider.lower(),
+        )

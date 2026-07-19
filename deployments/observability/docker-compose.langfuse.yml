@@ -1,0 +1,101 @@
+name: rag-sys
+
+services:
+  langfuse-postgres:
+    image: postgres:18.0-bookworm
+    profiles: [llm]
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse_pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U langfuse -d langfuse']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:24.12-alpine
+    profiles: [llm]
+    environment:
+      CLICKHOUSE_DB: langfuse
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: langfuse
+    volumes:
+      - langfuse_ch_data:/var/lib/clickhouse
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 -O - http://localhost:8123/ping']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  langfuse-redis:
+    image: redis:7.4-alpine
+    profiles: [llm]
+    command: ['redis-server', '--requirepass', 'langfuse']
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', 'langfuse', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  langfuse-minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    profiles: [llm]
+    command: server /data --console-address ':9002'
+    environment:
+      MINIO_ROOT_USER: langfuse
+      MINIO_ROOT_PASSWORD: langfuse-minio
+    volumes:
+      - langfuse_minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '--fail', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  langfuse:
+    image: langfuse/langfuse:3
+    profiles: [llm]
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse@langfuse-postgres:5432/langfuse
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: langfuse
+      REDIS_CONNECTION_STRING: redis://:langfuse@langfuse-redis:6379
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: langfuse-minio
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: us-east-1
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: 'true'
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-dev-only-secret}
+      NEXTAUTH_URL: http://localhost:3002
+      SALT: ${LANGFUSE_SALT:-dev-only-salt}
+      LANGFUSE_INIT_ORG_ID: rag-sys
+      LANGFUSE_INIT_PROJECT_ID: rag-sys
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-dev}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-dev}
+    ports:
+      - '3002:3000'
+    depends_on:
+      langfuse-postgres:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  langfuse_pg_data:
+  langfuse_ch_data:
+  langfuse_minio_data:
