@@ -85,20 +85,22 @@
 
 ## Task 4: Wire Decomposed Retrieval Into Ask
 
+**Status:** Complete
+
 **Description:** Update `AnswerQuestionUseCase` to choose between single-hop and decomposed retrieval. For complex queries, retrieve original query plus sub-questions concurrently, merge contexts, then continue to answer synthesis.
 
 **Acceptance criteria:**
-- [ ] Single-hop behavior is preserved when complex RAG is disabled or analysis returns simple.
-- [ ] Complex path retrieves from the original query and capped sub-questions.
-- [ ] Retrieval fan-out is bounded and uses existing `IContextRetriever`.
-- [ ] If no merged context is found, the existing refusal behavior remains.
+- [x] Single-hop behavior is preserved when complex RAG is disabled or analysis returns simple.
+- [x] Complex path retrieves from the original query and capped sub-questions.
+- [x] Retrieval fan-out is bounded and uses existing `IContextRetriever`.
+- [x] If no merged context is found, the existing refusal behavior remains.
 
 **Verification:**
-- [ ] Compile check: `uv run python -m compileall src`
-- [ ] Import smoke for `AnswerQuestionUseCase`.
-- [ ] Manual API check with a simple query returns the same response shape.
-- [ ] Manual API check with the compound Transformer query triggers the decomposed path in traces/logs.
-- [ ] No `tests/` directory is added.
+- [x] Compile check: `uv run python -m compileall src`
+- [x] Import smoke for `AnswerQuestionUseCase`.
+- [x] Manual use-case check with a simple query returns the same response shape.
+- [x] Manual use-case check with the compound Transformer query triggers the decomposed path.
+- [x] No `tests/` directory is added.
 
 **Dependencies:** Tasks 1, 2, 3
 

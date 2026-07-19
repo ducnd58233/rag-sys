@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import logging
 import time
+import asyncio
 from collections.abc import Sequence
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from src.modules.generation.app.context_merge import ContextMerger, RetrievedContextSet
 from src.modules.generation.app.dto import AskRequest, AskResult, CitationItem
 from src.modules.generation.app.llm_schema import GroundedAnswerSchema
 from src.modules.generation.app.ports import IContextRetriever
+from src.modules.generation.app.query_analysis import QueryAnalyzer, QueryPlan
 from src.modules.generation.domain.errors import GenerationValidationError
 from src.modules.generation.domain.models import ContextChunk
 from src.modules.generation.domain.prompt import REFUSAL_ANSWER, GroundedPromptBuilder
@@ -58,11 +61,18 @@ class AnswerQuestionUseCase:
         retriever: IContextRetriever,
         chat_model: IChatModel,
         prompt_builder: GroundedPromptBuilder | None = None,
+        query_analyzer: QueryAnalyzer | None = None,
+        context_merger: ContextMerger | None = None,
     ) -> None:
         self._chat_settings = chat_settings
         self._retriever = retriever
         self._chat = chat_model
         self._prompt = prompt_builder or GroundedPromptBuilder()
+        self._query_analyzer = query_analyzer or QueryAnalyzer(
+            chat_model,
+            max_subquestions=chat_settings.query_decomposition_max_subquestions,
+        )
+        self._context_merger = context_merger or ContextMerger()
 
     async def execute(self, request: AskRequest) -> AskResult:
         started_at = time.perf_counter()
@@ -92,8 +102,16 @@ class AnswerQuestionUseCase:
                 span.set_attribute("rag.query.length", len(query))
                 span.set_attribute("rag.retrieval.top_k", top_k)
 
-                contexts = await self._retriever.retrieve(
-                    query,
+                query_plan = await self._build_query_plan(query)
+                span.set_attribute("rag.ask.strategy", query_plan.strategy)
+                span.set_attribute(
+                    "rag.query.subquestion_count",
+                    len(query_plan.sub_questions),
+                )
+
+                contexts = await self._retrieve_contexts(
+                    query=query,
+                    query_plan=query_plan,
                     org_id=request.org_id,
                     top_k=top_k,
                     document_id=request.document_id,
@@ -174,3 +192,82 @@ class AnswerQuestionUseCase:
                     citation_count,
                     {"outcome": outcome},
                 )
+
+    async def _build_query_plan(self, query: str) -> QueryPlan:
+        if not self._chat_settings.complex_rag_enabled:
+            return QueryPlan.single_hop(reason="complex_rag_disabled")
+        return await self._query_analyzer.analyze(query)
+
+    async def _retrieve_contexts(
+        self,
+        *,
+        query: str,
+        query_plan: QueryPlan,
+        org_id: int,
+        top_k: int,
+        document_id: int | None,
+        document_version_id: int | None,
+    ) -> Sequence[ContextChunk]:
+        if not query_plan.is_complex:
+            return await self._retriever.retrieve(
+                query,
+                org_id=org_id,
+                top_k=top_k,
+                document_id=document_id,
+                document_version_id=document_version_id,
+            )
+
+        final_top_k = (
+            top_k
+            if top_k != self._chat_settings.top_k
+            else self._chat_settings.complex_rag_final_top_k
+        )
+        per_query_top_k = min(
+            self._chat_settings.complex_rag_per_query_top_k,
+            final_top_k,
+        )
+        retrieval_queries = query_plan.retrieval_queries(
+            query,
+            max_queries=self._chat_settings.complex_rag_max_retrieval_queries,
+        )
+
+        result_sets = await asyncio.gather(
+            *(
+                self._retrieve_context_set(
+                    retrieval_query,
+                    query_kind="original" if index == 0 else "subquestion",
+                    org_id=org_id,
+                    top_k=per_query_top_k,
+                    document_id=document_id,
+                    document_version_id=document_version_id,
+                )
+                for index, retrieval_query in enumerate(retrieval_queries)
+            ),
+        )
+        return self._context_merger.merge(
+            result_sets,
+            final_top_k=final_top_k,
+        ).contexts
+
+    async def _retrieve_context_set(
+        self,
+        query: str,
+        *,
+        query_kind: str,
+        org_id: int,
+        top_k: int,
+        document_id: int | None,
+        document_version_id: int | None,
+    ) -> RetrievedContextSet:
+        contexts = await self._retriever.retrieve(
+            query,
+            org_id=org_id,
+            top_k=top_k,
+            document_id=document_id,
+            document_version_id=document_version_id,
+        )
+        return RetrievedContextSet(
+            query=query,
+            query_kind=query_kind,
+            contexts=contexts,
+        )

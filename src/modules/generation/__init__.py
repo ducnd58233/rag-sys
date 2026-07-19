@@ -34,11 +34,17 @@ class GenerationComponentFactory:
         retrieve_use_case: RetrieveUseCase,
     ) -> GenerationComponents:
         chat = settings.chat
+        chat_model = ChatModelFactory.from_settings(chat)
         return GenerationComponents(
             answer_question=AnswerQuestionUseCase(
                 chat_settings=chat,
                 retriever=RetrieveUseCaseAdapter(retrieve_use_case),
-                chat_model=ChatModelFactory.from_settings(chat),
+                chat_model=chat_model,
                 prompt_builder=GroundedPromptBuilder(),
+                query_analyzer=QueryAnalyzer(
+                    chat_model,
+                    max_subquestions=chat.query_decomposition_max_subquestions,
+                ),
+                context_merger=ContextMerger(),
             ),
         )
