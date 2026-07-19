@@ -1,46 +1,44 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import StrEnum
+
 
 class DocumentStatus(StrEnum):
     ACTIVE = "active"
     DELETED = "deleted"
 
+
 class DocumentProcessingStatus(StrEnum):
     UPLOADED = "uploaded"
-    SCANNING = "scanning"
     PARSING = "parsing"
     INDEXED = "indexed"
     FAILED = "failed"
-    QUARANTINED = "quarantined"
 
-class DocumentScanStatus(StrEnum):
-    PENDING = "pending"
-    CLEAN = "clean"
-    INFECTED = "infected"
-    FAILED = "failed"
 
 class StoredObjectStatus(StrEnum):
-    PENDING = 'pending'
-    AVAILABLE = 'available'
-    QUARANTINED = 'quarantined'
-    DELETED = 'deleted'
-    FAILED = 'failed'
-    
-@dataclass(frozen=True, slots=True)
-class CaseRecord:
-    id: int
-    org_id: int
-    
+    PENDING = "pending"
+    AVAILABLE = "available"
+    DELETED = "deleted"
+    FAILED = "failed"
+
+
+class StoredObjectPurpose(StrEnum):
+    DOCUMENT_ORIGINAL = "document_original"
+    DERIVED_ASSET = "derived_asset"
+    EXPORT = "export"
+    TEMPORARY = "temporary"
+
+
 @dataclass(frozen=True, slots=True)
 class DocumentRecord:
     id: int
     org_id: int
-    case_id: int
     display_name: str
     current_version_id: int | None
     status: DocumentStatus
     created_by: int
+
 
 @dataclass(frozen=True, slots=True)
 class DocumentVersionRecord:
@@ -52,10 +50,10 @@ class DocumentVersionRecord:
     filename: str
     mime_type: str
     processing_status: DocumentProcessingStatus
-    scan_status: DocumentScanStatus
     uploaded_by: int
     doc_type: str | None
     doc_type_confidence: float | None
+
 
 @dataclass(frozen=True, slots=True)
 class StoredObjectRecord:

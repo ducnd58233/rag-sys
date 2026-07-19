@@ -8,32 +8,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 from src.shared.infra.database.base import Base
 
 
-class CaseRow(Base):
-    __tablename__ = 'cases'
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    org_id: Mapped[int] = mapped_column(BigInteger)
-    title: Mapped[str] = mapped_column(Text)
-    client_ref: Mapped[str | None] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String)
-    workflow_template_id: Mapped[int] = mapped_column(BigInteger)
-    template_slug: Mapped[str] = mapped_column(String)
-    template_version: Mapped[str] = mapped_column(String)
-    created_by: Mapped[int] = mapped_column(BigInteger)
-    assigned_to: Mapped[int | None] = mapped_column(BigInteger)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    archived_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-    )
-
-
 class DocumentRow(Base):
-    __tablename__ = 'documents'
+    __tablename__ = "documents"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     org_id: Mapped[int] = mapped_column(BigInteger)
-    case_id: Mapped[int] = mapped_column(BigInteger)
     display_name: Mapped[str] = mapped_column(Text)
     current_version_id: Mapped[int | None] = mapped_column(BigInteger)
     status: Mapped[str] = mapped_column(String)
@@ -46,7 +25,7 @@ class DocumentRow(Base):
 
 
 class DocumentVersionRow(Base):
-    __tablename__ = 'document_versions'
+    __tablename__ = "document_versions"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     org_id: Mapped[int] = mapped_column(BigInteger)
@@ -58,7 +37,6 @@ class DocumentVersionRow(Base):
     doc_type: Mapped[str | None] = mapped_column(Text)
     doc_type_confidence: Mapped[float | None] = mapped_column(Float)
     processing_status: Mapped[str] = mapped_column(String)
-    scan_status: Mapped[str] = mapped_column(String)
     uploaded_by: Mapped[int] = mapped_column(BigInteger)
     page_count: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -68,7 +46,7 @@ class DocumentVersionRow(Base):
 
 
 class StoredObjectRow(Base):
-    __tablename__ = 'stored_objects'
+    __tablename__ = "stored_objects"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     org_id: Mapped[int] = mapped_column(BigInteger)

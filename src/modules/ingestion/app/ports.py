@@ -6,11 +6,11 @@ from typing import Protocol
 
 from src.modules.ingestion.domain.models import (
     Chunk,
+    DocumentId,
     DocumentSource,
     DocumentVersionSource,
     ProcessedDocument,
 )
-from src.modules.ingestion.domain.models import DocumentId
 
 
 class ISourceResolver(Protocol):
@@ -32,12 +32,18 @@ class IVectorStore(Protocol):
 
     async def delete_by_document_id(
         self,
+        *,
+        org_id: int,
         document_id: DocumentId,
     ) -> None: ...
 
     async def upsert(
         self,
+        *,
+        org_id: int,
         document_id: DocumentId,
+        document_version_id: int,
+        version_no: int,
         metadata: dict[str, str],
         chunks: Sequence[Chunk],
         vectors: Sequence[Sequence[float]],

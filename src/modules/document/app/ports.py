@@ -4,20 +4,11 @@ from contextlib import AbstractAsyncContextManager
 from typing import Protocol
 
 from src.modules.document.domain.models import (
-    CaseRecord,
     DocumentProcessingStatus,
     DocumentRecord,
     DocumentVersionRecord,
     StoredObjectRecord,
 )
-
-class ICaseRepository(Protocol):
-    async def get(
-        self,
-        *,
-        org_id: int,
-        case_id: int,
-    ) -> CaseRecord | None: ...
 
 
 class IDocumentRepository(Protocol):
@@ -28,7 +19,10 @@ class IDocumentRepository(Protocol):
         document_id: int,
     ) -> DocumentRecord | None: ...
 
-    async def create(self, record: DocumentRecord) -> None: ...
+    async def create(
+        self,
+        record: DocumentRecord,
+    ) -> None: ...
 
     async def set_current_version(
         self,
@@ -87,7 +81,8 @@ class IStoredObjectRepository(Protocol):
         org_id: int,
         stored_object_id: int,
         etag: str,
-    ) -> None: ...
+        checksum_sha256: str,
+    ) -> bool: ...
 
     async def mark_failed(
         self,
@@ -98,7 +93,6 @@ class IStoredObjectRepository(Protocol):
 
 
 class IDocumentTransaction(Protocol):
-    cases: ICaseRepository
     documents: IDocumentRepository
     document_versions: IDocumentVersionRepository
     stored_objects: IStoredObjectRepository

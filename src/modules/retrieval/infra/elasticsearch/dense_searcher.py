@@ -3,11 +3,15 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 
+from src.modules.retrieval.app.dto import RetrievalFilter
 from src.modules.retrieval.domain.errors import RetrievalInternalError
 from src.modules.retrieval.domain.models import HitChunk
+from src.modules.retrieval.infra.elasticsearch.helper import (
+    _metadata_as_str_map,
+    build_filter_clauses,
+)
 from src.shared.configs.settings import ElasticsearchSettings
 from src.shared.infra.elasticsearch.client import Elasticsearch
-from src.modules.retrieval.infra.elasticsearch.helper import _metadata_as_str_map
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +27,7 @@ class ElasticsearchDenseSearcher:
         *,
         limit: int,
         num_candidates: int,
-        document_id: str | None = None,
+        filters: RetrievalFilter,
     ) -> Sequence[HitChunk]:
         knn: dict[str, object] = {
             "field": "embedding",
@@ -32,15 +36,21 @@ class ElasticsearchDenseSearcher:
             "num_candidates": max(num_candidates, limit),
         }
 
-        if document_id:
-            knn["filter"] = {"term": {"document_id": document_id}}
+        knn["filter"] = build_filter_clauses(filters)
 
         try:
             response = await self._client.search(
                 index=self._index,
                 knn=knn,
                 size=limit,
-                source=["chunk_id", "document_id", "content", "metadata"],
+                source={
+                    "includes": [
+                        "chunk_id",
+                        "document_id",
+                        "content",
+                        "metadata",
+                    ],
+                },
             )
         except Exception as e:
             raise RetrievalInternalError(f"dense search failed: {e}") from e

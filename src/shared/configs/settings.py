@@ -121,6 +121,7 @@ class RetrievalSettings(BaseSettings):
     rank_constant: int = Field(default=60, ge=1)
     min_fused_score: float | None = Field(default=None, ge=0.0)
 
+
 class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="DATABASE_",
@@ -128,10 +129,15 @@ class DatabaseSettings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
-    url: SecretStr = Field(default=SecretStr("postgresql+asyncpg://postgres:postgres@localhost:5432/rag-sys"))
+    url: SecretStr = Field(
+        default=SecretStr(
+            "postgresql+asyncpg://postgres:postgres@localhost:5432/rag-sys"
+        )
+    )
     echo: bool = Field(default=False)
     pool_size: int = Field(default=10, ge=1)
     max_overflow: int = Field(default=20, ge=0)
+
 
 class ObjectStorageSettings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -140,11 +146,51 @@ class ObjectStorageSettings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
-    endpoint: str = Field(default="http://localhost:9000")
-    access_key: SecretStr = Field(default="minioadmin")
-    secret_key: SecretStr = Field(default="minioadmin")
+    endpoint: str = Field(default="localhost:9000")
+    access_key: SecretStr = Field(default=SecretStr("minioadmin"))
+    secret_key: SecretStr = Field(default=SecretStr("minioadmin"))
     secure: bool = False
     region: str = Field(default="us-east-1")
+
+
+class SnowflakeSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="SNOWFLAKE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    instance_id: int = Field(default=0, ge=0, le=1023)
+
+
+class DocumentSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="DOCUMENT_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    max_upload_size_bytes: int = Field(
+        default=10_485_760,
+        gt=0,
+    )
+    upload_url_ttl_seconds: int = Field(
+        default=900,
+        ge=60,
+        le=3600,
+    )
+    allowed_mime_types: frozenset[str] = Field(
+        default=frozenset(
+            {
+                "application/pdf",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "image/jpeg",
+                "image/png",
+            },
+        ),
+    )
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -161,3 +207,5 @@ class Settings(BaseSettings):
     chat: ChatSettings = Field(default_factory=ChatSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     object_storage: ObjectStorageSettings = Field(default_factory=ObjectStorageSettings)
+    snowflake: SnowflakeSettings = Field(default_factory=SnowflakeSettings)
+    document: DocumentSettings = Field(default_factory=DocumentSettings)

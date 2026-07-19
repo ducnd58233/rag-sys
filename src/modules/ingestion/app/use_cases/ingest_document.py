@@ -1,15 +1,32 @@
-import asyncio
+from __future__ import annotations
+
 import logging
+
 from src.modules.document.app.ports import IDocumentUnitOfWork
-from src.modules.document.domain.models import DocumentProcessingStatus, DocumentScanStatus, StoredObjectStatus
+from src.modules.document.domain.models import (
+    DocumentProcessingStatus,
+    StoredObjectStatus,
+)
 from src.modules.ingestion.app.dto import IngestDocumentRequest, IngestDocumentResult
-from src.modules.ingestion.app.ports import IDocumentProcessor, ISourceResolver, IVectorStore
-from src.modules.ingestion.domain.errors import IngestionConflictError, IngestionInternalError, IngestionNotFoundError
-from src.modules.ingestion.domain.models import DocumentId, DocumentVersionSource, IngestionStatus
+from src.modules.ingestion.app.ports import (
+    IDocumentProcessor,
+    ISourceResolver,
+    IVectorStore,
+)
+from src.modules.ingestion.domain.errors import (
+    IngestionConflictError,
+    IngestionInternalError,
+    IngestionNotFoundError,
+)
+from src.modules.ingestion.domain.models import (
+    DocumentId,
+    DocumentVersionSource,
+    IngestionStatus,
+)
 from src.shared.app.ports import IEmbeddingModel
 
-
 logger = logging.getLogger(__name__)
+
 
 class IngestDocumentUseCase:
     def __init__(
@@ -26,12 +43,19 @@ class IngestDocumentUseCase:
         self._embedder = embedder
         self._vector_store = vector_store
 
-    async def execute(self, request: IngestDocumentRequest) -> IngestDocumentResult:
+    async def execute(
+        self,
+        request: IngestDocumentRequest,
+    ) -> IngestDocumentResult:
         source = await self._load_source_and_mark_parsing(request)
 
         try:
-            async with self._source_resolver.open(source) as document_source:
-                processed = await self._processor.process(document_source)
+            async with self._source_resolver.open(
+                source,
+            ) as document_source:
+                processed = await self._processor.process(
+                    document_source,
+                )
 
             chunks = processed.chunks
             vectors = (
@@ -44,37 +68,42 @@ class IngestDocumentUseCase:
 
             if len(vectors) != len(chunks):
                 raise IngestionInternalError(
-                    message='Embedding count does not match chunk count',
+                    message=("Embedding count does not match chunk count"),
                 )
 
             metadata = {
                 **processed.metadata,
-                'org_id': str(source.org_id),
-                'case_id': str(source.case_id),
-                'document_id': str(source.document_id.value),
-                'document_version_id': str(source.document_version_id),
-                'version': str(source.version_no),
-                'filename': source.filename,
-                'mime_type': source.mime_type,
+                "org_id": str(source.org_id),
+                "document_id": str(source.document_id.value),
+                "document_version_id": str(
+                    source.document_version_id,
+                ),
+                "version": str(source.version_no),
+                "filename": source.filename,
+                "mime_type": source.mime_type,
             }
 
             await self._vector_store.create_index_if_not_exists()
             await self._vector_store.delete_by_document_id(
-                source.document_id,
+                org_id=source.org_id,
+                document_id=source.document_id,
             )
 
             if chunks:
                 await self._vector_store.upsert(
+                    org_id=source.org_id,
                     document_id=source.document_id,
+                    document_version_id=source.document_version_id,
+                    version_no=source.version_no,
                     metadata=metadata,
                     chunks=chunks,
                     vectors=vectors,
                 )
-        except Exception as e:
+
+            await self._mark_indexed(request)
+        except Exception:
             await self._mark_failed(request)
             raise
-
-        await self._mark_indexed(request)
 
         return IngestDocumentResult(
             document_id=source.document_id.value,
@@ -97,33 +126,26 @@ class IngestDocumentUseCase:
                 raise IngestionNotFoundError(
                     message="Document version not found",
                 )
-            
-            document, stored_object = await asyncio.gather(
-                transaction.documents.get(
-                    org_id=request.org_id,
-                    document_id=version.document_id,
-                ),
-                transaction.stored_objects.get(
-                    org_id=request.org_id,
-                    stored_object_id=version.storage_object_id,
-                ),
+
+            document = await transaction.documents.get(
+                org_id=request.org_id,
+                document_id=version.document_id,
+            )
+            stored_object = await transaction.stored_objects.get(
+                org_id=request.org_id,
+                stored_object_id=version.storage_object_id,
             )
 
             if document is None or stored_object is None:
                 raise IngestionNotFoundError(
-                    message="Document source is incomplete"
+                    message="Document source is incomplete",
                 )
-            
-            if version.scan_status is not DocumentScanStatus.CLEAN:
-                raise IngestionConflictError(
-                    message="Document version has not passed malware scan"
-                )
-            
+
             if stored_object.status is not StoredObjectStatus.AVAILABLE:
                 raise IngestionConflictError(
-                    message="Stored object is not available"
+                    message="Stored object is not available",
                 )
-            
+
             await transaction.document_versions.set_processing_status(
                 org_id=request.org_id,
                 document_version_id=request.document_version_id,
@@ -132,7 +154,6 @@ class IngestDocumentUseCase:
 
             return DocumentVersionSource(
                 org_id=request.org_id,
-                case_id=document.case_id,
                 document_id=DocumentId(version.document_id),
                 document_version_id=version.id,
                 storage_object_id=stored_object.id,
@@ -142,7 +163,6 @@ class IngestDocumentUseCase:
                 filename=version.filename,
                 mime_type=version.mime_type,
                 processing_status=DocumentProcessingStatus.PARSING,
-                scan_status=version.scan_status,
                 size_bytes=stored_object.size_bytes,
                 checksum_sha256=stored_object.checksum_sha256,
             )
@@ -166,13 +186,13 @@ class IngestDocumentUseCase:
             async with self._doc_uow.begin() as transaction:
                 await transaction.document_versions.set_processing_status(
                     org_id=request.org_id,
-                    document_version_id=request.document_version_id,
+                    document_version_id=(request.document_version_id),
                     status=DocumentProcessingStatus.FAILED,
                 )
         except Exception:
             logger.exception(
-                'Could not persist failed ingestion status',
+                "Could not persist failed ingestion status",
                 extra={
-                    'document_version_id': request.document_version_id,
+                    "document_version_id": (request.document_version_id),
                 },
             )

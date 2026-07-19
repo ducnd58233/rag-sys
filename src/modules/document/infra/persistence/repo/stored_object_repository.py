@@ -5,10 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.modules.document.domain.models import (
-    StoredObjectRecord,
-    StoredObjectStatus,
-)
+from src.modules.document.domain.models import StoredObjectRecord, StoredObjectStatus
 from src.modules.document.infra.persistence.orm import StoredObjectRow
 
 
@@ -53,7 +50,7 @@ class SqlAlchemyStoredObjectRepository:
                 created_at=datetime.now(timezone.utc),
                 available_at=None,
                 deleted_at=None,
-            )
+            ),
         )
 
     async def mark_available(
@@ -62,20 +59,25 @@ class SqlAlchemyStoredObjectRepository:
         org_id: int,
         stored_object_id: int,
         etag: str,
-    ) -> None:
+        checksum_sha256: str,
+    ) -> bool:
         statement = (
             update(StoredObjectRow)
             .where(
                 StoredObjectRow.id == stored_object_id,
                 StoredObjectRow.org_id == org_id,
+                StoredObjectRow.status == StoredObjectStatus.PENDING.value,
             )
             .values(
                 status=StoredObjectStatus.AVAILABLE.value,
                 etag=etag,
+                checksum_sha256=checksum_sha256,
                 available_at=datetime.now(timezone.utc),
             )
+            .returning(StoredObjectRow.id)
         )
-        await self._session.execute(statement)
+        updated_id = await self._session.scalar(statement)
+        return updated_id is not None
 
     async def mark_failed(
         self,
@@ -88,6 +90,7 @@ class SqlAlchemyStoredObjectRepository:
             .where(
                 StoredObjectRow.id == stored_object_id,
                 StoredObjectRow.org_id == org_id,
+                StoredObjectRow.status == StoredObjectStatus.PENDING.value,
             )
             .values(status=StoredObjectStatus.FAILED.value)
         )

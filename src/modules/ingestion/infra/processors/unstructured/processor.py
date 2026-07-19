@@ -1,22 +1,36 @@
 import asyncio
 import logging
+from io import BytesIO
 
-from src.modules.ingestion.domain.errors import IngestionInternalError, IngestionValidationError
-from src.modules.ingestion.domain.models import Chunk, ChunkDraft, DocumentSource, ProcessedDocument
-from src.modules.ingestion.infra.processors.unstructured.config import UnstructuredProcessorRuntimeConfig
-from src.modules.ingestion.infra.processors.unstructured.metadata_extractor import extract_element_metadata
+from unstructured.documents.elements import Element
 
+from src.modules.ingestion.domain.errors import (
+    IngestionInternalError,
+    IngestionValidationError,
+)
+from src.modules.ingestion.domain.models import (
+    Chunk,
+    ChunkDraft,
+    DocumentSource,
+    ProcessedDocument,
+)
+from src.modules.ingestion.infra.processors.unstructured.config import (
+    UnstructuredProcessorRuntimeConfig,
+)
+from src.modules.ingestion.infra.processors.unstructured.metadata_extractor import (
+    extract_element_metadata,
+)
 
 logger = logging.getLogger(__name__)
 
 CHUNKING_STRATEGY_NAME = "by_title"
 
+
 class UnstructuredDocumentProcessor:
     def __init__(self, config: UnstructuredProcessorRuntimeConfig) -> None:
         self._config = config
-    
+
     async def process(self, source: DocumentSource) -> ProcessedDocument:
-        from unstructured.chunking.title import chunk_by_title
         try:
             raw_elements = await asyncio.wait_for(
                 asyncio.to_thread(self._partition, source),
@@ -30,7 +44,8 @@ class UnstructuredDocumentProcessor:
             raise IngestionInternalError(
                 message=(
                     "Document extraction timed out after "
-                    f"{self._config.extraction_timeout_seconds}s: {source.source_uri}",
+                    f"{self._config.extraction_timeout_seconds}s: "
+                    f"{source.source_uri}"
                 ),
             ) from e
         except Exception as e:
@@ -47,7 +62,7 @@ class UnstructuredDocumentProcessor:
         }
         drafts = tuple(
             ChunkDraft(
-                content=element.text,
+                content=element.text or "",
                 metadata=extract_element_metadata(element),
             )
             for element in chunked_elements
@@ -78,7 +93,10 @@ class UnstructuredDocumentProcessor:
             chunks=tuple(chunks),
         )
 
-    def _chunk_elements(self, elements: list[object]) -> list[Chunk]:
+    def _chunk_elements(
+        self,
+        elements: list[Element],
+    ) -> list[Element]:
         from unstructured.chunking.title import chunk_by_title
 
         return chunk_by_title(
@@ -88,15 +106,14 @@ class UnstructuredDocumentProcessor:
             new_after_n_chars=self._config.chunking.new_after_n_chars,
         )
 
-    def _partition(self, source: DocumentSource) -> list[object]:
+    def _partition(self, source: DocumentSource) -> list[Element]:
         from unstructured.partition.auto import partition
-        from io import BytesIO
-        
+
         strategy = self._config.partition.pdf_strategy
 
         if source.local_path is not None:
             return partition(filename=str(source.local_path), strategy=strategy)
-        
+
         if source.content is not None:
             return partition(
                 file=BytesIO(source.content),

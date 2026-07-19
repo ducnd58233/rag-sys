@@ -1,6 +1,6 @@
+import logging
 from collections.abc import Sequence
 from datetime import datetime, timezone
-import logging
 
 from elasticsearch.helpers import async_bulk
 
@@ -9,12 +9,12 @@ from src.modules.ingestion.domain.models import Chunk, DocumentId
 from src.shared.configs.settings import ElasticsearchSettings, EmbeddingSettings
 from src.shared.infra.elasticsearch.client import Elasticsearch
 
-
 logger = logging.getLogger(__name__)
+
 
 class ElasticsearchVectorStore:
     def __init__(
-        self, 
+        self,
         elasticsearch: Elasticsearch,
         elasticsearch_settings: ElasticsearchSettings,
         embedding_settings: EmbeddingSettings,
@@ -26,9 +26,31 @@ class ElasticsearchVectorStore:
         self._dimensions = embedding_settings.dimensions
 
     async def create_index_if_not_exists(self) -> None:
+        properties = {
+            "org_id": {"type": "keyword"},
+            "document_id": {"type": "keyword"},
+            "document_version_id": {"type": "keyword"},
+            "version_no": {"type": "integer"},
+            "chunk_id": {"type": "keyword"},
+            "chunk_index": {"type": "integer"},
+            "content": {"type": "text"},
+            "metadata": {"type": "object", "enabled": True},
+            "embedding": {
+                "type": "dense_vector",
+                "dims": self._dimensions,
+                "index": True,
+                "similarity": "cosine",
+            },
+            "indexed_at": {"type": "date"},
+        }
+
         if await self._client.indices.exists(index=self._index):
+            await self._client.indices.put_mapping(
+                index=self._index,
+                properties=properties,
+            )
             return
-        
+
         await self._client.indices.create(
             index=self._index,
             settings={
@@ -36,34 +58,41 @@ class ElasticsearchVectorStore:
                 "number_of_replicas": self._replicas,
             },
             mappings={
-                "properties": {
-                    "document_id": {"type": "keyword"},
-                    "chunk_id": {"type": "keyword"},
-                    "chunk_index": {"type": "integer"},
-                    "content": {"type": "text"},
-                    "metadata": {"type": "object", "enabled": True},
-                    "embedding": {
-                        "type": "dense_vector",
-                        "dims": self._dimensions,
-                        "index": True,
-                        "similarity": "cosine",
-                    },
-                    "indexed_at": {"type": "date"},
-                },
+                "properties": properties,
             },
         )
 
-    async def delete_by_document_id(self, document_id: DocumentId) -> None:
+    async def delete_by_document_id(
+        self,
+        *,
+        org_id: int,
+        document_id: DocumentId,
+    ) -> None:
         await self._client.delete_by_query(
             index=self._index,
-            query={"term": {"document_id": document_id.value}},
+            query={
+                "bool": {
+                    "filter": [
+                        {"term": {"org_id": str(org_id)}},
+                        {
+                            "term": {
+                                "document_id": str(document_id.value),
+                            },
+                        },
+                    ],
+                },
+            },
             conflicts="proceed",
             refresh=True,
         )
 
     async def upsert(
         self,
+        *,
+        org_id: int,
         document_id: DocumentId,
+        document_version_id: int,
+        version_no: int,
         metadata: dict[str, str],
         chunks: Sequence[Chunk],
         vectors: Sequence[Sequence[float]],
@@ -74,7 +103,10 @@ class ElasticsearchVectorStore:
                 "_index": self._index,
                 "_id": chunk.chunk_id,
                 "_source": {
-                    "document_id": document_id.value,
+                    "org_id": str(org_id),
+                    "document_id": str(document_id.value),
+                    "document_version_id": str(document_version_id),
+                    "version_no": version_no,
                     "chunk_id": chunk.chunk_id,
                     "chunk_index": chunk.index,
                     "content": chunk.content,
@@ -82,7 +114,8 @@ class ElasticsearchVectorStore:
                     "embedding": list(vector),
                     "indexed_at": indexed_at,
                 },
-            } for chunk, vector in zip(chunks, vectors)
+            }
+            for chunk, vector in zip(chunks, vectors)
         ]
 
         try:

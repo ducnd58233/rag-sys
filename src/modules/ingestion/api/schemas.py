@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-class IngestDocumentRequestBody(BaseModel):
+
+class StartIngestionRequestBody(BaseModel):
     org_id: int = Field(gt=0)
-    document_version_id: int = Field(gt=0)
+
 
 class IngestDocumentResponse(BaseModel):
     document_id: int

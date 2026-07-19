@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.document.domain.models import (
     DocumentProcessingStatus,
-    DocumentScanStatus,
     DocumentVersionRecord,
 )
 from src.modules.document.infra.persistence.orm import DocumentVersionRow
@@ -50,7 +49,6 @@ class SqlAlchemyDocumentVersionRepository:
                 doc_type=record.doc_type,
                 doc_type_confidence=record.doc_type_confidence,
                 processing_status=record.processing_status.value,
-                scan_status=record.scan_status.value,
                 uploaded_by=record.uploaded_by,
                 page_count=None,
                 created_at=datetime.now(timezone.utc),
@@ -108,7 +106,6 @@ class SqlAlchemyDocumentVersionRepository:
             processing_status=DocumentProcessingStatus(
                 row.processing_status,
             ),
-            scan_status=DocumentScanStatus(row.scan_status),
             uploaded_by=row.uploaded_by,
             doc_type=row.doc_type,
             doc_type_confidence=row.doc_type_confidence,
