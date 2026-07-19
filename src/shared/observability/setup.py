@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from opentelemetry import metrics, trace
@@ -15,6 +16,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from src.shared.configs.settings import ObservabilitySettings
+
+os.environ.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN", "http")
 
 
 @dataclass(frozen=True, slots=True)

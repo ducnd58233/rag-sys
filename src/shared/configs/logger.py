@@ -24,7 +24,7 @@ def configure_logging(config: LoggingSettings, *, service_name: str):
             console_handler.setFormatter(formatter)
             root.addHandler(console_handler)
         elif handler == "file":
-            file_path = Path(config.file_path)
+            file_path = Path(config.file_path).with_stem(service_name)
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_handler = RotatingFileHandler(
                 file_path,

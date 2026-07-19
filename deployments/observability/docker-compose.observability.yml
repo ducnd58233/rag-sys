@@ -34,6 +34,8 @@ services:
     volumes:
       - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
       - tempo_data:/var/tempo
+    ports:
+      - '3200:3200'
     restart: unless-stopped
 
   grafana:
@@ -54,10 +56,11 @@ services:
     restart: unless-stopped
 
   kafka-jmx-exporter:
-    image: bitnami/jmx-exporter:1.0.1
-    command: ['5556', '/etc/jmx-exporter/config.yml']
+    image: sscaling/jmx-prometheus-exporter:0.12.0
     volumes:
-      - ./kafka/jmx-exporter-config.yml:/etc/jmx-exporter/config.yml:ro
+      - ./kafka/jmx-exporter-config.yml:/opt/jmx_exporter/config.yml:ro
+    ports:
+      - '5556:5556'
     restart: unless-stopped
 
   cadvisor:

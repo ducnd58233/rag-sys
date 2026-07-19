@@ -79,7 +79,11 @@ class LangChainChatModel:
         max_tokens: int | None = None,
     ) -> TSchema:
         model = self._bound(temperature=temperature, max_tokens=max_tokens)
-        structured = model.with_structured_output(schema, method="json_schema")
+        structured = model.with_structured_output(
+            schema,
+            method="json_schema",
+            include_raw=True,
+        )
         with _tracer.start_as_current_span(
             "llm.chat",
             attributes={"gen_ai.request.model": self._model_name},
@@ -87,9 +91,13 @@ class LangChainChatModel:
             result = await structured.ainvoke(
                 [SystemMessage(content=system), HumanMessage(content=user)],
             )
-        if isinstance(result, schema):
-            return result
-        return schema.model_validate(result)
+            self._record_token_usage(result["raw"])
+        if result["parsing_error"] is not None:
+            raise result["parsing_error"]
+        parsed = result["parsed"]
+        if isinstance(parsed, schema):
+            return parsed
+        return schema.model_validate(parsed)
 
     def bind_tools(self, tools: Sequence[object]) -> IChatModel:
         return LangChainChatModel(
