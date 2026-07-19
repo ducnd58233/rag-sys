@@ -8,6 +8,7 @@ from src.modules.document import (
     CreateDocumentUploadUrlUseCase,
     DocumentComponentFactory,
 )
+from src.modules.document.infra.messaging import KafkaIngestionRequestPublisher
 from src.modules.document.infra.unit_of_work import SqlAlchemyDocumentUnitOfWork
 from src.modules.generation import AnswerQuestionUseCase, GenerationComponentFactory
 from src.modules.ingestion import IngestDocumentUseCase, IngestionComponentFactory
@@ -19,6 +20,7 @@ from src.shared.infra.database import Database
 from src.shared.infra.elasticsearch.client import Elasticsearch
 from src.shared.infra.embedding import EmbeddingModelFactory
 from src.shared.infra.id_generator import SnowflakeIdGenerator
+from src.shared.infra.mq import AioKafkaPublisher
 from src.shared.infra.object_storage import MinioObjectStorage
 
 
@@ -29,16 +31,21 @@ class AppContainer:
     object_storage: IObjectStorage
     elasticsearch: Elasticsearch
     embedding_model: IEmbeddingModel
+    kafka_publisher: AioKafkaPublisher
     create_document_upload: CreateDocumentUploadUrlUseCase
     complete_document_upload: CompleteDocumentUploadUseCase
     ingest_document: IngestDocumentUseCase
     retrieve: RetrieveUseCase
     answer_question: AnswerQuestionUseCase
 
+    async def startup(self) -> None:
+        await self.kafka_publisher.start()
+
     async def shutdown(self) -> None:
         await asyncio.gather(
             self.elasticsearch.close(),
             self.database.close(),
+            self.kafka_publisher.close(),
         )
 
 
@@ -62,12 +69,15 @@ def build_container(
     document_uow = SqlAlchemyDocumentUnitOfWork(
         database.session_factory,
     )
+    kafka_publisher = AioKafkaPublisher(resolved.kafka)
+    ingestion_publisher = KafkaIngestionRequestPublisher(kafka_publisher)
 
     document_components = DocumentComponentFactory.build(
         settings=resolved.document,
         document_uow=document_uow,
         object_storage=object_storage,
         id_generator=id_generator,
+        ingestion_publisher=ingestion_publisher,
     )
     ingest_document = IngestionComponentFactory.build_ingestion_use_case(
         document_uow=document_uow,
@@ -92,6 +102,7 @@ def build_container(
         object_storage=object_storage,
         elasticsearch=elasticsearch,
         embedding_model=embedding_model,
+        kafka_publisher=kafka_publisher,
         create_document_upload=(document_components.create_upload_url),
         complete_document_upload=(document_components.complete_upload),
         ingest_document=ingest_document,
