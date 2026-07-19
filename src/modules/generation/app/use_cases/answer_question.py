@@ -4,6 +4,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -32,6 +33,13 @@ from src.shared.observability.metrics import (
 
 logger = logging.getLogger(__name__)
 _tracer = trace.get_tracer(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class _IntentAnswer:
+    intent_index: int
+    answer: str = ""
+    cited_indices: tuple[int, ...] = ()
 
 
 def _citations_from_indices(
@@ -76,7 +84,7 @@ class AnswerQuestionUseCase:
         self._prompt = prompt_builder or GroundedPromptBuilder()
         self._query_analyzer = query_analyzer or QueryAnalyzer(
             chat_model,
-            max_subquestions=chat_settings.query_decomposition_max_subquestions,
+            max_planning_iterations=chat_settings.complex_rag_max_iterations,
         )
         self._context_merger = context_merger or ContextMerger()
 
@@ -126,6 +134,12 @@ class AnswerQuestionUseCase:
                     document_version_id=request.document_version_id,
                 )
                 span.set_attribute("rag.context.count", len(contexts))
+                supported_intent_indices = _supported_intent_indices(contexts)
+                if supported_intent_indices:
+                    span.set_attribute(
+                        "rag.query.supported_intent_count",
+                        len(supported_intent_indices),
+                    )
                 if not contexts:
                     outcome = "refused_no_context"
                     return AskResult(
@@ -142,18 +156,36 @@ class AnswerQuestionUseCase:
                         "rag.context.count": len(contexts),
                     },
                 ):
-                    system, user = self._prompt.build(
-                        query,
+                    if query_plan.sub_questions:
+                        structured = await self._answer_complex_intents(
+                            query=query,
+                            contexts=contexts,
+                            sub_questions=query_plan.sub_questions,
+                        )
+                    else:
+                        system, user = self._prompt.build(
+                            query,
+                            contexts,
+                        )
+                        structured = await self._chat.complete_structured(
+                            system=system,
+                            user=user,
+                            schema=GroundedAnswerSchema,
+                            temperature=self._chat_settings.temperature,
+                            max_tokens=self._chat_settings.max_tokens,
+                        )
+                    if query_plan.sub_questions and _missing_supported_intents(
+                        structured,
                         contexts,
-                        sub_questions=query_plan.sub_questions,
-                    )
-                    structured = await self._chat.complete_structured(
-                        system=system,
-                        user=user,
-                        schema=GroundedAnswerSchema,
-                        temperature=self._chat_settings.temperature,
-                        max_tokens=self._chat_settings.max_tokens,
-                    )
+                        supported_intent_indices,
+                    ):
+                        outcome = "refused_missing_supported_intents"
+                        return AskResult(
+                            query=query,
+                            answer=REFUSAL_ANSWER,
+                            citations=(),
+                            refused=True,
+                        )
 
                 if structured.refused:
                     outcome = "refused_model"
@@ -256,13 +288,14 @@ class AnswerQuestionUseCase:
         document_version_id: int | None,
     ) -> Sequence[ContextChunk]:
         if not query_plan.is_complex:
+            retrieval_query = query_plan.rewritten_query or query
             generation_ask_retrieval_queries.record(
                 1,
                 {"strategy": query_plan.strategy},
             )
             trace.get_current_span().set_attribute("rag.retrieval.query_count", 1)
             result_set = await self._retrieve_context_set(
-                query,
+                retrieval_query,
                 query_kind="original",
                 org_id=org_id,
                 top_k=top_k,
@@ -284,30 +317,33 @@ class AnswerQuestionUseCase:
             self._chat_settings.complex_rag_per_query_top_k,
             final_top_k,
         )
-        retrieval_queries = query_plan.retrieval_queries(
+        retrieval_requests = query_plan.retrieval_requests(
             query,
             max_queries=self._chat_settings.complex_rag_max_retrieval_queries,
         )
         generation_ask_retrieval_queries.record(
-            len(retrieval_queries),
+            len(retrieval_requests),
             {"strategy": query_plan.strategy},
         )
         trace.get_current_span().set_attribute(
             "rag.retrieval.query_count",
-            len(retrieval_queries),
+            len(retrieval_requests),
         )
 
         result_sets = await asyncio.gather(
             *(
                 self._retrieve_context_set(
-                    retrieval_query,
-                    query_kind="original" if index == 0 else "subquestion",
+                    request.query,
+                    query_kind=(
+                        "original" if request.intent_index is None else "subquestion"
+                    ),
+                    intent_index=request.intent_index,
                     org_id=org_id,
                     top_k=per_query_top_k,
                     document_id=document_id,
                     document_version_id=document_version_id,
                 )
-                for index, retrieval_query in enumerate(retrieval_queries)
+                for request in retrieval_requests
             ),
         )
         started_at = time.perf_counter()
@@ -315,7 +351,7 @@ class AnswerQuestionUseCase:
             "generation.context_merge",
             attributes={
                 "rag.ask.strategy": query_plan.strategy,
-                "rag.retrieval.query_count": len(retrieval_queries),
+                "rag.retrieval.query_count": len(retrieval_requests),
             },
         ) as span:
             merge_result = self._context_merger.merge(
@@ -346,6 +382,7 @@ class AnswerQuestionUseCase:
         query: str,
         *,
         query_kind: str,
+        intent_index: int | None = None,
         org_id: int,
         top_k: int,
         document_id: int | None,
@@ -373,6 +410,7 @@ class AnswerQuestionUseCase:
                     query=query,
                     query_kind=query_kind,
                     contexts=contexts,
+                    intent_index=intent_index,
                 )
             except Exception as error:
                 outcome = "failure"
@@ -383,3 +421,241 @@ class AnswerQuestionUseCase:
                     time.perf_counter() - started_at,
                     {"query_kind": query_kind, "outcome": outcome},
                 )
+
+    async def _answer_complex_intents(
+        self,
+        *,
+        query: str,
+        contexts: Sequence[ContextChunk],
+        sub_questions: Sequence[str],
+    ) -> GroundedAnswerSchema:
+        math_evidence = await self._extract_math_evidence(
+            query=query,
+            contexts=contexts,
+        )
+        intent_results = []
+        for intent_index, question in enumerate(sub_questions, start=1):
+            intent_results.append(
+                await self._answer_one_intent(
+                    query=question,
+                    intent_index=intent_index,
+                    contexts=contexts,
+                    math_evidence=math_evidence,
+                )
+            )
+        answered = [result for result in intent_results if result.answer]
+        unsupported = [
+            result.intent_index for result in intent_results if not result.answer
+        ]
+        if not answered:
+            return GroundedAnswerSchema(
+                refused=True,
+                answer=REFUSAL_ANSWER,
+                cited_indices=[],
+                covered_questions=[],
+                unsupported_questions=unsupported,
+            )
+
+        cited_indices: list[int] = []
+        covered_questions: list[int] = []
+        answer_parts: list[str] = []
+        for result in answered:
+            answer_parts.append(f"{result.intent_index}. {result.answer}")
+            covered_questions.append(result.intent_index)
+            for cited_index in result.cited_indices:
+                if cited_index not in cited_indices:
+                    cited_indices.append(cited_index)
+        draft_answer = "\n\n".join(answer_parts)
+        final_answer = (
+            draft_answer
+            if math_evidence
+            else await self._refine_complex_answer(
+                query=query,
+                contexts=contexts,
+                draft_answer=draft_answer,
+                sub_questions=sub_questions,
+            )
+        )
+
+        return GroundedAnswerSchema(
+            refused=False,
+            answer=final_answer,
+            cited_indices=cited_indices,
+            covered_questions=covered_questions,
+            unsupported_questions=unsupported,
+        )
+
+    async def _answer_one_intent(
+        self,
+        *,
+        query: str,
+        intent_index: int,
+        contexts: Sequence[ContextChunk],
+        math_evidence: str = "",
+    ) -> _IntentAnswer:
+        indexed_contexts = _contexts_for_intent(contexts, intent_index)
+        if not indexed_contexts:
+            return _IntentAnswer(intent_index=intent_index)
+
+        local_contexts = tuple(context for _, context in indexed_contexts[:2])
+        with _tracer.start_as_current_span(
+            "generation.answer_intent",
+            attributes={
+                "rag.query.intent_index": intent_index,
+                "rag.context.count": len(local_contexts),
+            },
+        ):
+            system, user = self._prompt.build_intent_text_answer(
+                query,
+                local_contexts,
+                math_evidence=math_evidence,
+            )
+            result = await self._chat.complete(
+                system=system,
+                user=user,
+                temperature=None,
+                max_tokens=None,
+            )
+        answer = _strip_numbered_prefix(result.content.strip())
+        if answer == REFUSAL_ANSWER:
+            return _IntentAnswer(intent_index=intent_index)
+        if not answer:
+            return _IntentAnswer(intent_index=intent_index)
+
+        return _IntentAnswer(
+            intent_index=intent_index,
+            answer=answer,
+            cited_indices=tuple(index for index, _ in indexed_contexts[:2]),
+        )
+
+    async def _refine_complex_answer(
+        self,
+        *,
+        query: str,
+        contexts: Sequence[ContextChunk],
+        draft_answer: str,
+        sub_questions: Sequence[str],
+    ) -> str:
+        with _tracer.start_as_current_span(
+            "generation.refine_complex_answer",
+            attributes={
+                "rag.context.count": len(contexts),
+                "rag.query.intent_count": len(sub_questions),
+            },
+        ):
+            system, user = self._prompt.build_final_text_answer(
+                query,
+                contexts,
+                draft_answer=draft_answer,
+                sub_questions=sub_questions,
+            )
+            result = await self._chat.complete(
+                system=system,
+                user=user,
+                temperature=None,
+                max_tokens=None,
+            )
+        answer = result.content.strip()
+        if not answer or answer == REFUSAL_ANSWER:
+            return draft_answer
+        return answer
+
+    async def _extract_math_evidence(
+        self,
+        *,
+        query: str,
+        contexts: Sequence[ContextChunk],
+    ) -> str:
+        with _tracer.start_as_current_span(
+            "generation.extract_math_evidence",
+            attributes={"rag.context.count": len(contexts)},
+        ):
+            system, user = self._prompt.build_math_evidence(query, contexts)
+            result = await self._chat.complete(
+                system=system,
+                user=user,
+                temperature=None,
+                max_tokens=None,
+            )
+        answer = result.content.strip()
+        if not answer or answer.upper().rstrip(".") == "NO_MATH_EVIDENCE":
+            return ""
+        return answer
+
+
+def _supported_intent_indices(contexts: Sequence[ContextChunk]) -> tuple[int, ...]:
+    indices: set[int] = set()
+    for context in contexts:
+        value = context.metadata.get("answer_intent_indices")
+        if value is None:
+            value = context.metadata.get("answer_intent_index")
+        if value is None:
+            continue
+        if isinstance(value, int):
+            indices.add(value)
+            continue
+        if isinstance(value, (list, tuple, set, frozenset)):
+            for item in value:
+                if isinstance(item, int):
+                    indices.add(item)
+    return tuple(sorted(index for index in indices if index > 0))
+
+
+def _contexts_for_intent(
+    contexts: Sequence[ContextChunk],
+    intent_index: int,
+) -> tuple[tuple[int, ContextChunk], ...]:
+    return tuple(
+        (index, context)
+        for index, context in enumerate(contexts, start=1)
+        if intent_index in _context_intent_indices(context)
+    )
+
+
+def _context_intent_indices(context: ContextChunk) -> tuple[int, ...]:
+    value = context.metadata.get("answer_intent_indices")
+    if value is None:
+        value = context.metadata.get("answer_intent_index")
+    if isinstance(value, int):
+        return (value,)
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return tuple(item for item in value if isinstance(item, int))
+    return ()
+
+
+def _strip_numbered_prefix(answer: str) -> str:
+    for prefix in ("1. ", "2. ", "3. ", "4. ", "5. "):
+        if answer.startswith(prefix):
+            return answer[len(prefix) :].strip()
+    return answer
+
+
+def _missing_supported_intents(
+    answer: GroundedAnswerSchema,
+    contexts: Sequence[ContextChunk],
+    supported_intent_indices: Sequence[int],
+) -> tuple[int, ...]:
+    if answer.refused or not supported_intent_indices:
+        return ()
+    covered = _covered_intents_from_citations(answer.cited_indices, contexts)
+    return tuple(index for index in supported_intent_indices if index not in covered)
+
+
+def _covered_intents_from_citations(
+    cited_indices: Sequence[int],
+    contexts: Sequence[ContextChunk],
+) -> set[int]:
+    covered: set[int] = set()
+    for source_number in cited_indices:
+        index = source_number - 1
+        if index < 0 or index >= len(contexts):
+            continue
+        value = contexts[index].metadata.get("answer_intent_indices")
+        if value is None:
+            value = contexts[index].metadata.get("answer_intent_index")
+        if isinstance(value, int):
+            covered.add(value)
+            continue
+        if isinstance(value, (list, tuple, set, frozenset)):
+            covered.update(item for item in value if isinstance(item, int))
+    return {index for index in covered if index > 0}

@@ -43,7 +43,7 @@ class GenerationComponentFactory:
                 prompt_builder=GroundedPromptBuilder(),
                 query_analyzer=QueryAnalyzer(
                     chat_model,
-                    max_subquestions=chat.query_decomposition_max_subquestions,
+                    max_planning_iterations=chat.complex_rag_max_iterations,
                 ),
                 context_merger=ContextMerger(),
             ),

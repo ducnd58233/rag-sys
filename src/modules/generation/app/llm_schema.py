@@ -20,13 +20,27 @@ class GroundedAnswerSchema(BaseModel):
     )
 
 
+class QueryIntentSchema(BaseModel):
+    question: str = Field(
+        description="Self-contained user intent question for answer synthesis.",
+    )
+    retrieval_queries: list[str] = Field(
+        default_factory=list,
+        description="Concise search queries for this intent.",
+    )
+
+
 class QueryAnalysisSchema(BaseModel):
     is_complex: bool = Field(
         description="True when the query has multiple distinct answer intents."
     )
-    sub_questions: list[str] = Field(
+    rewritten_query: str = Field(
+        default="",
+        description="A clearer standalone version of the user query.",
+    )
+    intents: list[QueryIntentSchema] = Field(
         default_factory=list,
-        description="Self-contained sub-questions for retrieval.",
+        description="Answer intents with optimized retrieval queries.",
     )
     reason: str = Field(
         default="",
