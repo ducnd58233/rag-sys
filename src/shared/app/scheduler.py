@@ -10,12 +10,6 @@ PeriodicTask = Callable[[], Awaitable[None]]
 
 
 class PeriodicRuntime:
-    """Runs an async callable on a fixed interval until asked to stop.
-
-    Mirrors ``ConsumerRuntime``'s stop-event shape so both loops start/drain the
-    same way from the worker entrypoint, without pulling in a scheduler dependency.
-    """
-
     def __init__(
         self,
         *,
