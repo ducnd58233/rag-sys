@@ -12,6 +12,14 @@ messaging_consume_duration = _meter.create_histogram(
     "rag.messaging.consume.duration",
     unit="s",
 )
+messaging_consume_inflight = _meter.create_gauge(
+    "rag.messaging.consume.inflight",
+    unit="{message}",
+)
+messaging_commit_count = _meter.create_counter(
+    "rag.messaging.commit",
+    unit="{message}",
+)
 messaging_consumer_lag = _meter.create_gauge(
     "rag.messaging.consumer.lag",
     unit="{message}",

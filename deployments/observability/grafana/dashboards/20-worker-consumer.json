@@ -12,31 +12,63 @@
       "id": 1, "title": "Step duration heatmap", "type": "heatmap",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (le) (rate(rag_ingestion_step_duration_seconds_bucket[5m]))", "format": "heatmap", "legendFormat": "{{le}}" }]
+      "targets": [{ "expr": "sum by (le, step) (rate(rag_ingestion_step_duration_seconds_bucket[5m]))", "format": "heatmap", "legendFormat": "{{step}} {{le}}" }]
     },
     {
-      "id": 2, "title": "Outcome breakdown", "type": "timeseries",
+      "id": 2, "title": "Step outcome rate", "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "datasource": "Prometheus",
       "targets": [{ "expr": "sum by (step, outcome) (rate(rag_ingestion_step_duration_seconds_count[5m]))", "legendFormat": "{{step}} - {{outcome}}" }]
     },
     {
-      "id": 3, "title": "Consume outcome rate", "type": "timeseries",
+      "id": 3, "title": "Consume p50 / p95 latency", "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le, messaging_destination_name) (rate(rag_messaging_consume_duration_seconds_bucket[5m])))", "legendFormat": "p50 {{messaging_destination_name}}" },
+        { "expr": "slo:messaging_consume_duration:p95", "legendFormat": "p95 {{messaging_destination_name}}" }
+      ]
+    },
+    {
+      "id": 4, "title": "Consume outcome rate", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "datasource": "Prometheus",
       "targets": [{ "expr": "sum by (outcome) (rate(rag_messaging_consume_duration_seconds_count[5m]))", "legendFormat": "{{outcome}}" }]
     },
     {
-      "id": 4, "title": "Lag per partition", "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 5, "title": "Lag per partition", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
       "datasource": "Prometheus",
       "targets": [{ "expr": "rag_messaging_consumer_lag", "legendFormat": "{{messaging_destination_name}} / p{{partition}}" }]
     },
     {
-      "id": 5, "title": "Document size ingested", "type": "timeseries",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 6, "title": "In-flight messages", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (mime_type) (rate(rag_ingestion_document_size_by_sum[5m]))", "legendFormat": "{{mime_type}}" }]
+      "targets": [{ "expr": "sum by (messaging_destination_name, partition) (rag_messaging_consume_inflight)", "legendFormat": "{{messaging_destination_name}} / p{{partition}}" }]
+    },
+    {
+      "id": 7, "title": "Committed offsets rate", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (messaging_destination_name, partition) (rate(rag_messaging_commit_total[5m]))", "legendFormat": "{{messaging_destination_name}} / p{{partition}}" }]
+    },
+    {
+      "id": 8, "title": "Document bytes ingested", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (mime_type) (rate(rag_ingestion_document_size_bytes_sum[5m]))", "legendFormat": "{{mime_type}}" }],
+      "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] }
+    },
+    {
+      "id": 9, "title": "Worker process RSS memory", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "process_memory_usage_bytes{service_name=\"worker\"}", "legendFormat": "worker rss" },
+        { "expr": "process_runtime_memory_bytes{service_name=\"worker\", type=\"rss\"}", "legendFormat": "worker runtime rss" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
     }
   ]
 }

@@ -80,3 +80,12 @@ groups:
               rate(rag_messaging_publish_duration_seconds_bucket[5m])
             )
           )
+
+      - record: slo:messaging_consume_duration:p95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, messaging_destination_name) (
+              rate(rag_messaging_consume_duration_seconds_bucket[5m])
+            )
+          )

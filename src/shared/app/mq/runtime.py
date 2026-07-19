@@ -8,7 +8,11 @@ from collections.abc import Awaitable, Callable
 from opentelemetry import propagate, trace
 
 from src.shared.app.ports.message_queue import IMessageConsumer, IncomingMessage
-from src.shared.observability.metrics import messaging_consume_duration
+from src.shared.observability.metrics import (
+    messaging_commit_count,
+    messaging_consume_duration,
+    messaging_consume_inflight,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +53,11 @@ class ConsumerRuntime:
         context = propagate.extract(message.headers)
         started_at = time.perf_counter()
         outcome = "success"
+        metric_attributes = {
+            "messaging.destination.name": message.topic,
+            "partition": str(message.partition),
+        }
+        messaging_consume_inflight.set(1, metric_attributes)
         with _tracer.start_as_current_span(
             f"{message.topic} process",
             context=context,
@@ -74,7 +83,18 @@ class ConsumerRuntime:
             finally:
                 messaging_consume_duration.record(
                     time.perf_counter() - started_at,
-                    {"messaging.destination.name": message.topic, "outcome": outcome},
+                    {
+                        "messaging.destination.name": message.topic,
+                        "outcome": outcome,
+                    },
                 )
+                messaging_consume_inflight.set(0, metric_attributes)
 
         await self._consumer.commit(message)
+        messaging_commit_count.add(
+            1,
+            {
+                "messaging.destination.name": message.topic,
+                "partition": str(message.partition),
+            },
+        )
