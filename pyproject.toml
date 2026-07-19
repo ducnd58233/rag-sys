@@ -57,5 +57,6 @@ migrate-up = 'alembic upgrade head'
 migrate-down = 'alembic downgrade -1'
 
 [project.scripts]
-app = "src.app.main:run"
-dev = "src.app.main:run_dev"
+app = "src.app.api.main:run"
+dev = "src.app.api.main:run_dev"
+worker = "src.app.worker.main:run"
