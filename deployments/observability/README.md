@@ -21,7 +21,7 @@ make obs-down-core
 - Collector metrics: http://localhost:8889/metrics
 - cAdvisor: http://localhost:8081
 - Kafka JMX exporter: http://localhost:5556/metrics
-- Langfuse (profile `llm`): http://localhost:3002
+- Langfuse LLM analytics (profile `llm`): http://localhost:3002
 
 Key dashboards in Grafana:
 
@@ -40,5 +40,6 @@ For complex RAG requests, inspect Tempo traces for these spans:
 - `generation.context_merge`
 - `generation.answer_synthesis`
 
-Langfuse is enabled by default in the local observability stack because the self-hosted core is free for
-development. It uses the dev-only keys from `.env.example` unless overridden.
+Langfuse is enabled by default in the local observability stack because the self-hosted OSS core is free for
+development. It uses the dev-only keys from `.env.example` unless overridden. Use `make obs-up-core` if you only need
+Grafana/Prometheus/Tempo and want to skip the Langfuse ClickHouse dependency.

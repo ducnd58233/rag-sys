@@ -65,6 +65,7 @@ attention calculation, with citations for both supported parts.
 - Prometheus: http://localhost:9090
 - Tempo: http://localhost:3200
 - Kafka UI (Kafbat): http://localhost:8082
+- Langfuse LLM analytics: http://localhost:3002
 
 ## File size / SHA-256 for the upload API
 
