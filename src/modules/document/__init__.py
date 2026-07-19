@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.modules.document.app.ports import IDocumentUnitOfWork
+from src.modules.document.app.ports import (
+    IDocumentUnitOfWork,
+    IIngestionRequestPublisher,
+)
 from src.modules.document.app.use_cases.complete_upload import (
     CompleteDocumentUploadUseCase,
 )
@@ -34,6 +37,7 @@ class DocumentComponentFactory:
         document_uow: IDocumentUnitOfWork,
         object_storage: IObjectStorage,
         id_generator: IIdGenerator,
+        ingestion_publisher: IIngestionRequestPublisher,
     ) -> DocumentComponents:
         return DocumentComponents(
             create_upload_url=CreateDocumentUploadUrlUseCase(
@@ -47,5 +51,6 @@ class DocumentComponentFactory:
             complete_upload=CompleteDocumentUploadUseCase(
                 document_uow=document_uow,
                 object_storage=object_storage,
+                ingestion_publisher=ingestion_publisher,
             ),
         )

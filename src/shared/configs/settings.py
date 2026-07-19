@@ -153,6 +153,20 @@ class ObjectStorageSettings(BaseSettings):
     region: str = Field(default="us-east-1")
 
 
+class KafkaSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="KAFKA_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    bootstrap_servers: str = Field(default="localhost:9092")
+    client_id: str = Field(default="rag-sys")
+    session_timeout_ms: int = Field(default=45_000, ge=1_000)
+    max_poll_interval_ms: int = Field(default=1_800_000, ge=1_000)
+    consumer_poll_timeout_ms: int = Field(default=1_000, ge=100)
+
+
 class SnowflakeSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="SNOWFLAKE_",
@@ -209,3 +223,4 @@ class Settings(BaseSettings):
     object_storage: ObjectStorageSettings = Field(default_factory=ObjectStorageSettings)
     snowflake: SnowflakeSettings = Field(default_factory=SnowflakeSettings)
     document: DocumentSettings = Field(default_factory=DocumentSettings)
+    kafka: KafkaSettings = Field(default_factory=KafkaSettings)

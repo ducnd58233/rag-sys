@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from src.modules.retrieval.app.use_cases.retrieve import RetrieveUseCase
 from src.modules.retrieval.infra.elasticsearch.dense_searcher import (
     ElasticsearchDenseSearcher,
@@ -12,25 +14,33 @@ from src.shared.app.ports import IEmbeddingModel
 from src.shared.configs.settings import Settings
 from src.shared.infra.elasticsearch.client import Elasticsearch
 
-__all__ = ["RetrievalComponentFactory", "RetrieveUseCase"]
+__all__ = ["RetrievalComponentFactory", "RetrievalComponents", "RetrieveUseCase"]
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalComponents:
+    retrieve: RetrieveUseCase
 
 
 class RetrievalComponentFactory:
     @staticmethod
-    def build_retrieve_use_case(
+    def build(
+        *,
         settings: Settings,
         elasticsearch: Elasticsearch,
         embedder: IEmbeddingModel,
-    ) -> RetrieveUseCase:
+    ) -> RetrievalComponents:
         retrieval = settings.retrieval
-        return RetrieveUseCase(
-            embedder=embedder,
-            retrieval_settings=retrieval,
-            lexical_searcher=ElasticsearchLexicalSearcher(
-                elasticsearch, settings.elasticsearch
+        return RetrievalComponents(
+            retrieve=RetrieveUseCase(
+                embedder=embedder,
+                retrieval_settings=retrieval,
+                lexical_searcher=ElasticsearchLexicalSearcher(
+                    elasticsearch, settings.elasticsearch
+                ),
+                dense_searcher=ElasticsearchDenseSearcher(
+                    elasticsearch, settings.elasticsearch
+                ),
+                rank_fusion=ReciprocalRankFusion(rank_constant=retrieval.rank_constant),
             ),
-            dense_searcher=ElasticsearchDenseSearcher(
-                elasticsearch, settings.elasticsearch
-            ),
-            rank_fusion=ReciprocalRankFusion(rank_constant=retrieval.rank_constant),
         )
