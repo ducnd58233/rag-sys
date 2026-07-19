@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -125,6 +125,8 @@ class IngestionSettings(BaseSettings):
     chunk_max_characters: int = Field(default=1500, ge=128)
     chunk_combine_text_under_n_chars: int = Field(default=256, ge=0)
     chunk_new_after_n_chars: int = Field(default=1000, ge=128)
+    outbox_relay_enabled: bool = Field(default=True)
+    outbox_relay_interval_seconds: float = Field(default=5.0, gt=0)
 
 
 class RetrievalSettings(BaseSettings):
@@ -184,6 +186,9 @@ class KafkaSettings(BaseSettings):
     session_timeout_ms: int = Field(default=45_000, ge=1_000)
     max_poll_interval_ms: int = Field(default=1_800_000, ge=1_000)
     consumer_poll_timeout_ms: int = Field(default=1_000, ge=100)
+    retry_max_attempts: int = Field(default=3, ge=1, le=10)
+    retry_base_delay_seconds: float = Field(default=2.0, gt=0)
+    retry_max_delay_seconds: float = Field(default=30.0, gt=0)
 
 
 class SnowflakeSettings(BaseSettings):
@@ -244,3 +249,14 @@ class Settings(BaseSettings):
     document: DocumentSettings = Field(default_factory=DocumentSettings)
     kafka: KafkaSettings = Field(default_factory=KafkaSettings)
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
+
+    @model_validator(mode="after")
+    def _validate_kafka_max_poll_interval(self) -> "Settings":
+        extraction_timeout_ms = self.ingestion.extraction_timeout_seconds * 1000
+        if self.kafka.max_poll_interval_ms <= extraction_timeout_ms:
+            raise ValueError(
+                "KAFKA_MAX_POLL_INTERVAL_MS must exceed "
+                "INGESTION_EXTRACTION_TIMEOUT_SECONDS * 1000 to avoid "
+                "consumer group rebalance loops"
+            )
+        return self

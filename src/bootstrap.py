@@ -9,11 +9,16 @@ from src.modules.document import (
     CompleteDocumentUploadUseCase,
     CreateDocumentUploadUrlUseCase,
     DocumentComponentFactory,
+    PublishIngestionOutboxEventsUseCase,
 )
 from src.modules.document.infra.messaging import KafkaIngestionRequestPublisher
 from src.modules.document.infra.unit_of_work import SqlAlchemyDocumentUnitOfWork
 from src.modules.generation import AnswerQuestionUseCase, GenerationComponentFactory
-from src.modules.ingestion import IngestDocumentUseCase, IngestionComponentFactory
+from src.modules.ingestion import (
+    IngestDocumentUseCase,
+    IngestionComponentFactory,
+    RequestIngestionUseCase,
+)
 from src.modules.ingestion.app.handlers.ingestion_requested import (
     IngestionRequestedHandler,
 )
@@ -41,7 +46,9 @@ class AppContainer:
     kafka_publisher: AioKafkaPublisher
     create_document_upload: CreateDocumentUploadUrlUseCase
     complete_document_upload: CompleteDocumentUploadUseCase
+    publish_ingestion_outbox_events: PublishIngestionOutboxEventsUseCase
     ingest_document: IngestDocumentUseCase
+    request_ingestion: RequestIngestionUseCase
     ingestion_handler: IngestionRequestedHandler
     retrieve: RetrieveUseCase
     answer_question: AnswerQuestionUseCase
@@ -105,6 +112,7 @@ def build_container(
         settings=resolved,
         elasticsearch=elasticsearch,
         embedder=embedding_model,
+        id_generator=id_generator,
     )
     retrieval_components = RetrievalComponentFactory.build(
         settings=resolved,
@@ -126,7 +134,11 @@ def build_container(
         kafka_publisher=kafka_publisher,
         create_document_upload=(document_components.create_upload_url),
         complete_document_upload=(document_components.complete_upload),
+        publish_ingestion_outbox_events=(
+            document_components.publish_ingestion_outbox_events
+        ),
         ingest_document=ingestion_components.ingest_document,
+        request_ingestion=ingestion_components.request_ingestion,
         ingestion_handler=ingestion_components.ingestion_handler,
         retrieve=retrieval_components.retrieve,
         answer_question=generation_components.answer_question,

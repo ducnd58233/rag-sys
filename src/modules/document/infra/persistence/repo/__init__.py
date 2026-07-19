@@ -4,6 +4,9 @@ from src.modules.document.infra.persistence.repo.document_repository import (
 from src.modules.document.infra.persistence.repo.document_version_repository import (
     SqlAlchemyDocumentVersionRepository,
 )
+from src.modules.document.infra.persistence.repo.ingestion_outbox_repository import (
+    SqlAlchemyIngestionOutboxRepository,
+)
 from src.modules.document.infra.persistence.repo.stored_object_repository import (
     SqlAlchemyStoredObjectRepository,
 )
@@ -11,5 +14,6 @@ from src.modules.document.infra.persistence.repo.stored_object_repository import
 __all__ = [
     "SqlAlchemyDocumentRepository",
     "SqlAlchemyDocumentVersionRepository",
+    "SqlAlchemyIngestionOutboxRepository",
     "SqlAlchemyStoredObjectRepository",
 ]

@@ -16,11 +16,20 @@ uv run app       # or: uv run dev (auto-reload)
 uv run worker
 ```
 
+## API documentation
+
+After starting the API with `uv run app` or `uv run dev`, open:
+
+- Swagger UI (test endpoints): http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+- OpenAPI schema: http://localhost:8000/openapi.json
+
 ## Dashboards
 
 - Grafana: http://localhost:3001
 - Prometheus: http://localhost:9090
 - Tempo: http://localhost:3200
+- Kafka UI (Kafbat): http://localhost:8082
 
 ## File size / SHA-256 for the upload API
 

@@ -7,6 +7,9 @@ from src.modules.ingestion.app.handlers.ingestion_requested import (
     IngestionRequestedHandler,
 )
 from src.modules.ingestion.app.use_cases.ingest_document import IngestDocumentUseCase
+from src.modules.ingestion.app.use_cases.request_ingestion import (
+    RequestIngestionUseCase,
+)
 from src.modules.ingestion.infra.persistence.es_vector_store import (
     ElasticsearchVectorStore,
 )
@@ -14,7 +17,7 @@ from src.modules.ingestion.infra.processors.factory import DocumentProcessorFact
 from src.modules.ingestion.infra.sources.object_storage_resolver import (
     ObjectStorageSourceResolver,
 )
-from src.shared.app.ports import IEmbeddingModel, IObjectStorage
+from src.shared.app.ports import IEmbeddingModel, IIdGenerator, IObjectStorage
 from src.shared.configs.settings import Settings
 from src.shared.infra.elasticsearch.client import Elasticsearch
 
@@ -22,12 +25,14 @@ __all__ = [
     "IngestDocumentUseCase",
     "IngestionComponentFactory",
     "IngestionComponents",
+    "RequestIngestionUseCase",
 ]
 
 
 @dataclass(frozen=True, slots=True)
 class IngestionComponents:
     ingest_document: IngestDocumentUseCase
+    request_ingestion: RequestIngestionUseCase
     ingestion_handler: IngestionRequestedHandler
 
 
@@ -40,6 +45,7 @@ class IngestionComponentFactory:
         settings: Settings,
         elasticsearch: Elasticsearch,
         embedder: IEmbeddingModel,
+        id_generator: IIdGenerator,
     ) -> IngestionComponents:
         ingestion = settings.ingestion
 
@@ -60,5 +66,9 @@ class IngestionComponentFactory:
 
         return IngestionComponents(
             ingest_document=ingest_document,
+            request_ingestion=RequestIngestionUseCase(
+                doc_uow=document_uow,
+                id_generator=id_generator,
+            ),
             ingestion_handler=IngestionRequestedHandler(ingest_document),
         )

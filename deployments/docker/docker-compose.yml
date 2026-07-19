@@ -153,7 +153,23 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 \
           --create --if-not-exists --topic document.ingestion.requested.v1 \
           --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 \
+          --create --if-not-exists --topic document.ingestion.requested.v1.dlq \
+          --partitions 3 --replication-factor 1
     restart: 'no'
+
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:v1.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - '8082:8080'
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    restart: unless-stopped
 
 volumes:
   es_data:

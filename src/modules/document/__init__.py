@@ -12,6 +12,9 @@ from src.modules.document.app.use_cases.complete_upload import (
 from src.modules.document.app.use_cases.create_upload_url import (
     CreateDocumentUploadUrlUseCase,
 )
+from src.modules.document.app.use_cases.publish_ingestion_outbox_events import (
+    PublishIngestionOutboxEventsUseCase,
+)
 from src.shared.app.ports import IIdGenerator, IObjectStorage
 from src.shared.configs.settings import DocumentSettings
 
@@ -20,6 +23,7 @@ __all__ = [
     "CreateDocumentUploadUrlUseCase",
     "DocumentComponentFactory",
     "DocumentComponents",
+    "PublishIngestionOutboxEventsUseCase",
 ]
 
 
@@ -27,6 +31,7 @@ __all__ = [
 class DocumentComponents:
     create_upload_url: CreateDocumentUploadUrlUseCase
     complete_upload: CompleteDocumentUploadUseCase
+    publish_ingestion_outbox_events: PublishIngestionOutboxEventsUseCase
 
 
 class DocumentComponentFactory:
@@ -51,6 +56,10 @@ class DocumentComponentFactory:
             complete_upload=CompleteDocumentUploadUseCase(
                 document_uow=document_uow,
                 object_storage=object_storage,
+                id_generator=id_generator,
+            ),
+            publish_ingestion_outbox_events=PublishIngestionOutboxEventsUseCase(
+                document_uow=document_uow,
                 ingestion_publisher=ingestion_publisher,
             ),
         )

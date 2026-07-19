@@ -55,6 +55,21 @@ class DocumentVersionRecord:
     doc_type_confidence: float | None
 
 
+class IngestionOutboxEventStatus(StrEnum):
+    PENDING = "pending"
+    PUBLISHED = "published"
+
+
+@dataclass(frozen=True, slots=True)
+class IngestionOutboxEventRecord:
+    id: int
+    org_id: int
+    document_id: int
+    document_version_id: int
+    version_no: int
+    status: IngestionOutboxEventStatus
+
+
 @dataclass(frozen=True, slots=True)
 class StoredObjectRecord:
     id: int

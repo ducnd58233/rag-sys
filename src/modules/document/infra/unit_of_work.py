@@ -11,11 +11,13 @@ from src.modules.document.app.ports import (
     IDocumentTransaction,
     IDocumentUnitOfWork,
     IDocumentVersionRepository,
+    IIngestionOutboxRepository,
     IStoredObjectRepository,
 )
 from src.modules.document.infra.persistence.repo import (
     SqlAlchemyDocumentRepository,
     SqlAlchemyDocumentVersionRepository,
+    SqlAlchemyIngestionOutboxRepository,
     SqlAlchemyStoredObjectRepository,
 )
 
@@ -26,6 +28,7 @@ class SqlAlchemyDocumentTransaction(IDocumentTransaction):
     documents: IDocumentRepository
     document_versions: IDocumentVersionRepository
     stored_objects: IStoredObjectRepository
+    ingestion_outbox: IIngestionOutboxRepository
 
     async def flush(self) -> None:
         await self._session.flush()
@@ -44,4 +47,5 @@ class SqlAlchemyDocumentUnitOfWork(IDocumentUnitOfWork):
                     documents=SqlAlchemyDocumentRepository(session),
                     document_versions=SqlAlchemyDocumentVersionRepository(session),
                     stored_objects=SqlAlchemyStoredObjectRepository(session),
+                    ingestion_outbox=SqlAlchemyIngestionOutboxRepository(session),
                 )

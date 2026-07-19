@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from contextlib import AbstractAsyncContextManager
 from typing import Protocol
 
@@ -7,6 +8,7 @@ from src.modules.document.domain.models import (
     DocumentProcessingStatus,
     DocumentRecord,
     DocumentVersionRecord,
+    IngestionOutboxEventRecord,
     StoredObjectRecord,
 )
 
@@ -92,10 +94,30 @@ class IStoredObjectRepository(Protocol):
     ) -> None: ...
 
 
+class IIngestionOutboxRepository(Protocol):
+    async def enqueue(
+        self,
+        record: IngestionOutboxEventRecord,
+    ) -> None: ...
+
+    async def find_pending(
+        self,
+        *,
+        limit: int,
+    ) -> Sequence[IngestionOutboxEventRecord]: ...
+
+    async def mark_published(
+        self,
+        *,
+        event_id: int,
+    ) -> None: ...
+
+
 class IDocumentTransaction(Protocol):
     documents: IDocumentRepository
     document_versions: IDocumentVersionRepository
     stored_objects: IStoredObjectRepository
+    ingestion_outbox: IIngestionOutboxRepository
 
     async def flush(self) -> None: ...
 
