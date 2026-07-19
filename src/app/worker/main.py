@@ -5,7 +5,6 @@ import signal
 import sys
 
 from src.bootstrap import build_container
-from src.modules.ingestion import IngestionComponentFactory
 from src.shared.app.mq.runtime import ConsumerRuntime
 from src.shared.app.ports.message_queue import ConsumerGroup, Topic
 from src.shared.infra.mq import AioKafkaConsumer
@@ -20,12 +19,9 @@ async def _run() -> None:
         topic=Topic.DOCUMENT_INGESTION_REQUESTED,
         group=ConsumerGroup.INGESTION_WORKER,
     )
-    handler = IngestionComponentFactory.build_ingestion_handler(
-        container.ingest_document,
-    )
     runtime = ConsumerRuntime(
         consumer=consumer,
-        handler=handler.handle,
+        handler=container.ingestion_handler.handle,
         poll_timeout_ms=container.settings.kafka.consumer_poll_timeout_ms,
     )
 

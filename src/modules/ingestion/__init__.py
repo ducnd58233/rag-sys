@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from src.modules.document.app.ports import IDocumentUnitOfWork
 from src.modules.ingestion.app.handlers.ingestion_requested import (
     IngestionRequestedHandler,
@@ -17,24 +19,31 @@ from src.shared.configs.settings import Settings
 from src.shared.infra.elasticsearch.client import Elasticsearch
 
 __all__ = [
-    "IngestionComponentFactory",
     "IngestDocumentUseCase",
+    "IngestionComponentFactory",
+    "IngestionComponents",
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class IngestionComponents:
+    ingest_document: IngestDocumentUseCase
+    ingestion_handler: IngestionRequestedHandler
 
 
 class IngestionComponentFactory:
     @staticmethod
-    def build_ingestion_use_case(
+    def build(
         *,
         document_uow: IDocumentUnitOfWork,
         object_storage: IObjectStorage,
         settings: Settings,
         elasticsearch: Elasticsearch,
         embedder: IEmbeddingModel,
-    ) -> IngestDocumentUseCase:
+    ) -> IngestionComponents:
         ingestion = settings.ingestion
 
-        return IngestDocumentUseCase(
+        ingest_document = IngestDocumentUseCase(
             doc_uow=document_uow,
             source_resolver=ObjectStorageSourceResolver(
                 storage=object_storage,
@@ -49,8 +58,7 @@ class IngestionComponentFactory:
             ),
         )
 
-    @staticmethod
-    def build_ingestion_handler(
-        ingest_document: IngestDocumentUseCase,
-    ) -> IngestionRequestedHandler:
-        return IngestionRequestedHandler(ingest_document)
+        return IngestionComponents(
+            ingest_document=ingest_document,
+            ingestion_handler=IngestionRequestedHandler(ingest_document),
+        )
