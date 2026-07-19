@@ -3,9 +3,11 @@ from src.shared.app.ports.embedding import IEmbeddingModel
 from src.shared.app.ports.id_generator import IIdGenerator
 from src.shared.app.ports.message_queue import (
     ConsumerGroup,
+    DlqTopic,
     IMessageConsumer,
     IMessagePublisher,
     IncomingMessage,
+    MessageHeader,
     MessageQueueError,
     Topic,
 )
@@ -18,6 +20,7 @@ from src.shared.app.ports.object_storage import (
 __all__ = [
     "ChatResult",
     "ConsumerGroup",
+    "DlqTopic",
     "IChatModel",
     "IEmbeddingModel",
     "IIdGenerator",
@@ -25,6 +28,7 @@ __all__ = [
     "IMessagePublisher",
     "IObjectStorage",
     "IncomingMessage",
+    "MessageHeader",
     "MessageQueueError",
     "ObjectStorageError",
     "StoredObject",

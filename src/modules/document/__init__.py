@@ -12,6 +12,9 @@ from src.modules.document.app.use_cases.complete_upload import (
 from src.modules.document.app.use_cases.create_upload_url import (
     CreateDocumentUploadUrlUseCase,
 )
+from src.modules.document.app.use_cases.reconcile_stale_uploads import (
+    ReconcileStaleUploadsUseCase,
+)
 from src.shared.app.ports import IIdGenerator, IObjectStorage
 from src.shared.configs.settings import DocumentSettings
 
@@ -20,6 +23,7 @@ __all__ = [
     "CreateDocumentUploadUrlUseCase",
     "DocumentComponentFactory",
     "DocumentComponents",
+    "ReconcileStaleUploadsUseCase",
 ]
 
 
@@ -27,6 +31,7 @@ __all__ = [
 class DocumentComponents:
     create_upload_url: CreateDocumentUploadUrlUseCase
     complete_upload: CompleteDocumentUploadUseCase
+    reconcile_stale_uploads: ReconcileStaleUploadsUseCase
 
 
 class DocumentComponentFactory:
@@ -38,6 +43,7 @@ class DocumentComponentFactory:
         object_storage: IObjectStorage,
         id_generator: IIdGenerator,
         ingestion_publisher: IIngestionRequestPublisher,
+        reconciliation_grace_period_seconds: float,
     ) -> DocumentComponents:
         return DocumentComponents(
             create_upload_url=CreateDocumentUploadUrlUseCase(
@@ -52,5 +58,10 @@ class DocumentComponentFactory:
                 document_uow=document_uow,
                 object_storage=object_storage,
                 ingestion_publisher=ingestion_publisher,
+            ),
+            reconcile_stale_uploads=ReconcileStaleUploadsUseCase(
+                document_uow=document_uow,
+                ingestion_publisher=ingestion_publisher,
+                grace_period_seconds=reconciliation_grace_period_seconds,
             ),
         )

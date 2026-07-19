@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
 
 from aiokafka import AIOKafkaProducer
 from aiokafka.errors import KafkaError
 from opentelemetry import propagate, trace
 
-from src.shared.app.ports.message_queue import MessageQueueError, Topic
+from src.shared.app.ports.message_queue import DlqTopic, MessageQueueError, Topic
 from src.shared.configs.settings import KafkaSettings
 from src.shared.observability.metrics import messaging_publish_duration
 
@@ -30,10 +31,11 @@ class AioKafkaPublisher:
 
     async def publish(
         self,
-        topic: Topic,
+        topic: Topic | DlqTopic,
         *,
         key: str | None,
         payload: bytes,
+        headers: Mapping[str, str] | None = None,
     ) -> None:
         with _tracer.start_as_current_span(
             f"{topic.value} publish",
@@ -43,9 +45,12 @@ class AioKafkaPublisher:
                 "messaging.operation": "publish",
             },
         ):
-            carrier: dict[str, str] = {}
+            carrier: dict[str, str] = dict(headers or {})
             propagate.inject(carrier)
-            headers = [(key_, value.encode("utf-8")) for key_, value in carrier.items()]
+            encoded_headers = [
+                (header_key, header_value.encode("utf-8"))
+                for header_key, header_value in carrier.items()
+            ]
 
             started_at = time.perf_counter()
             outcome = "success"
@@ -54,7 +59,7 @@ class AioKafkaPublisher:
                     topic.value,
                     value=payload,
                     key=key.encode("utf-8") if key is not None else None,
-                    headers=headers,
+                    headers=encoded_headers,
                 )
             except KafkaError as error:
                 outcome = "failure"

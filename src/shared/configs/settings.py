@@ -125,6 +125,9 @@ class IngestionSettings(BaseSettings):
     chunk_max_characters: int = Field(default=1500, ge=128)
     chunk_combine_text_under_n_chars: int = Field(default=256, ge=0)
     chunk_new_after_n_chars: int = Field(default=1000, ge=128)
+    reconciliation_enabled: bool = Field(default=True)
+    reconciliation_interval_seconds: float = Field(default=300.0, gt=0)
+    reconciliation_grace_period_seconds: float = Field(default=120.0, gt=0)
 
 
 class RetrievalSettings(BaseSettings):
@@ -184,6 +187,9 @@ class KafkaSettings(BaseSettings):
     session_timeout_ms: int = Field(default=45_000, ge=1_000)
     max_poll_interval_ms: int = Field(default=1_800_000, ge=1_000)
     consumer_poll_timeout_ms: int = Field(default=1_000, ge=100)
+    retry_max_attempts: int = Field(default=3, ge=1, le=10)
+    retry_base_delay_seconds: float = Field(default=2.0, gt=0)
+    retry_max_delay_seconds: float = Field(default=30.0, gt=0)
 
 
 class SnowflakeSettings(BaseSettings):

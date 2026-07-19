@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from contextlib import AbstractAsyncContextManager
+from datetime import datetime
 from typing import Protocol
 
 from src.modules.document.domain.models import (
     DocumentProcessingStatus,
     DocumentRecord,
     DocumentVersionRecord,
+    StaleUploadedVersion,
     StoredObjectRecord,
 )
 
@@ -60,6 +63,13 @@ class IDocumentVersionRepository(Protocol):
         document_version_id: int,
         status: DocumentProcessingStatus,
     ) -> None: ...
+
+    async def find_stale_uploaded(
+        self,
+        *,
+        older_than: datetime,
+        limit: int,
+    ) -> Sequence[StaleUploadedVersion]: ...
 
 
 class IStoredObjectRepository(Protocol):

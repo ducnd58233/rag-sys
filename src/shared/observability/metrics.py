@@ -44,6 +44,10 @@ messaging_consumer_lag = _meter.create_gauge(
     "rag.messaging.consumer.lag",
     unit="{message}",
 )
+messaging_dlq_count = _meter.create_counter(
+    "rag.messaging.dlq",
+    unit="{message}",
+)
 ingestion_step_duration = _meter.create_histogram(
     "rag.ingestion.step.duration",
     unit="s",

@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.modules.document.app.ports import IDocumentUnitOfWork
+from src.modules.document.app.ports import (
+    IDocumentUnitOfWork,
+    IIngestionRequestPublisher,
+)
 from src.modules.ingestion.app.handlers.ingestion_requested import (
     IngestionRequestedHandler,
 )
 from src.modules.ingestion.app.use_cases.ingest_document import IngestDocumentUseCase
+from src.modules.ingestion.app.use_cases.request_ingestion import (
+    RequestIngestionUseCase,
+)
 from src.modules.ingestion.infra.persistence.es_vector_store import (
     ElasticsearchVectorStore,
 )
@@ -22,12 +28,14 @@ __all__ = [
     "IngestDocumentUseCase",
     "IngestionComponentFactory",
     "IngestionComponents",
+    "RequestIngestionUseCase",
 ]
 
 
 @dataclass(frozen=True, slots=True)
 class IngestionComponents:
     ingest_document: IngestDocumentUseCase
+    request_ingestion: RequestIngestionUseCase
     ingestion_handler: IngestionRequestedHandler
 
 
@@ -40,6 +48,7 @@ class IngestionComponentFactory:
         settings: Settings,
         elasticsearch: Elasticsearch,
         embedder: IEmbeddingModel,
+        ingestion_publisher: IIngestionRequestPublisher,
     ) -> IngestionComponents:
         ingestion = settings.ingestion
 
@@ -60,5 +69,9 @@ class IngestionComponentFactory:
 
         return IngestionComponents(
             ingest_document=ingest_document,
+            request_ingestion=RequestIngestionUseCase(
+                doc_uow=document_uow,
+                ingestion_publisher=ingestion_publisher,
+            ),
             ingestion_handler=IngestionRequestedHandler(ingest_document),
         )

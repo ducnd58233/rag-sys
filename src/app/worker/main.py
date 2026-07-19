@@ -3,11 +3,26 @@ from __future__ import annotations
 import asyncio
 import signal
 import sys
+from collections.abc import Awaitable, Callable
+from typing import TypeVar
 
 from src.bootstrap import build_container
-from src.shared.app.mq.runtime import ConsumerRuntime
+from src.shared.app.mq.retry import RetryPolicy
+from src.shared.app.mq.runtime import ConsumerRuntime, ConsumerRuntimeConfig
 from src.shared.app.ports.message_queue import ConsumerGroup, Topic
+from src.shared.app.scheduler import PeriodicRuntime
 from src.shared.infra.mq import AioKafkaConsumer
+
+_T = TypeVar("_T")
+
+
+def _discard_result(
+    func: Callable[[], Awaitable[_T]],
+) -> Callable[[], Awaitable[None]]:
+    async def _call() -> None:
+        await func()
+
+    return _call
 
 
 async def _run() -> None:
@@ -19,19 +34,40 @@ async def _run() -> None:
         topic=Topic.DOCUMENT_INGESTION_REQUESTED,
         group=ConsumerGroup.INGESTION_WORKER,
     )
-    runtime = ConsumerRuntime(
+    consumer_runtime = ConsumerRuntime(
         consumer=consumer,
+        publisher=container.kafka_publisher,
         handler=container.ingestion_handler.handle,
-        poll_timeout_ms=container.settings.kafka.consumer_poll_timeout_ms,
+        config=ConsumerRuntimeConfig(
+            topic=Topic.DOCUMENT_INGESTION_REQUESTED,
+            poll_timeout_ms=container.settings.kafka.consumer_poll_timeout_ms,
+            retry=RetryPolicy(
+                max_attempts=container.settings.kafka.retry_max_attempts,
+                base_delay_seconds=container.settings.kafka.retry_base_delay_seconds,
+                max_delay_seconds=container.settings.kafka.retry_max_delay_seconds,
+            ),
+        ),
     )
+    runtimes = [consumer_runtime]
+
+    if container.settings.ingestion.reconciliation_enabled:
+        reconciliation_runtime = PeriodicRuntime(
+            task=_discard_result(container.reconcile_stale_uploads.execute),
+            interval_seconds=container.settings.ingestion.reconciliation_interval_seconds,
+            name="reconcile-stale-uploads",
+        )
+        runtimes.append(reconciliation_runtime)
 
     if sys.platform != "win32":
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, runtime.request_stop)
+            loop.add_signal_handler(
+                sig,
+                lambda: [runtime.request_stop() for runtime in runtimes],
+            )
 
     try:
-        await runtime.run()
+        await asyncio.gather(*(runtime.run() for runtime in runtimes))
     finally:
         await container.shutdown()
 

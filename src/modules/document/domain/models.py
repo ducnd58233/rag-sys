@@ -56,6 +56,14 @@ class DocumentVersionRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class StaleUploadedVersion:
+    org_id: int
+    document_id: int
+    document_version_id: int
+    version_no: int
+
+
+@dataclass(frozen=True, slots=True)
 class StoredObjectRecord:
     id: int
     org_id: int
