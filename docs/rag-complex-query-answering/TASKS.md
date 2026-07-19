@@ -57,19 +57,21 @@
 
 ## Task 3: Add Context Merge and Coverage Scoring
 
+**Status:** Complete
+
 **Description:** Add a deterministic context merge component for fan-out retrieval results. It deduplicates by `chunk_id`, keeps the best score, tracks which retrieval queries found each chunk, and orders chunks by coverage plus score.
 
 **Acceptance criteria:**
-- [ ] Duplicate chunks collapse into one context item.
-- [ ] Chunks matched by multiple retrieval queries get a deterministic boost.
-- [ ] Final context count is capped by `CHAT_COMPLEX_RAG_FINAL_TOP_K`.
-- [ ] Metadata records bounded internal fields only if needed for prompting or tracing.
+- [x] Duplicate chunks collapse into one context item.
+- [x] Chunks matched by multiple retrieval queries get a deterministic boost.
+- [x] Final context count is capped by `CHAT_COMPLEX_RAG_FINAL_TOP_K`.
+- [x] Metadata records bounded internal fields only if needed for prompting or tracing.
 
 **Verification:**
-- [ ] Compile check: `uv run python -m compileall src`
-- [ ] Import smoke for the context merge module.
-- [ ] Manual smoke with sample in-memory chunks shows stable ordering and dedupe.
-- [ ] No `tests/` directory is added.
+- [x] Compile check: `uv run python -m compileall src`
+- [x] Import smoke for the context merge module.
+- [x] Manual smoke with sample in-memory chunks shows stable ordering and dedupe.
+- [x] No `tests/` directory is added.
 
 **Dependencies:** Task 1
 
@@ -199,10 +201,10 @@
 
 ## Checkpoint: After Tasks 1-3
 
-- [ ] Foundation compiles.
-- [ ] Settings instantiate correctly.
-- [ ] Query analyzer and context merge import cleanly.
-- [ ] No public API contract changed.
+- [x] Foundation compiles.
+- [x] Settings instantiate correctly.
+- [x] Query analyzer and context merge import cleanly.
+- [x] No public API contract changed.
 
 ## Checkpoint: After Tasks 4-5
 

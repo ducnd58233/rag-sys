@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from src.modules.generation.app.context_merge import ContextMerger
 from src.modules.generation.app.query_analysis import QueryAnalyzer, QueryPlan
 from src.modules.generation.app.use_cases.answer_question import AnswerQuestionUseCase
 from src.modules.generation.domain.prompt import GroundedPromptBuilder
@@ -14,6 +15,7 @@ __all__ = [
     "AnswerQuestionUseCase",
     "GenerationComponentFactory",
     "GenerationComponents",
+    "ContextMerger",
     "QueryAnalyzer",
     "QueryPlan",
 ]
