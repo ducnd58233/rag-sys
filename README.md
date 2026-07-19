@@ -21,7 +21,7 @@ uv run worker
 - Grafana: http://localhost:3001
 - Prometheus: http://localhost:9090
 - Tempo: http://localhost:3200
-- Kafka UI (Kafbat): http://localhost:8080
+- Kafka UI (Kafbat): http://localhost:8082
 
 ## File size / SHA-256 for the upload API
 
