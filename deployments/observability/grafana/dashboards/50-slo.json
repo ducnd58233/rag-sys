@@ -12,13 +12,15 @@
       "id": 1, "title": "API availability (30d)", "type": "stat",
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "avg_over_time(slo:http_availability:ratio_rate1h[30d])" }]
+      "targets": [{ "expr": "avg_over_time(slo:http_availability:ratio_rate1h[30d])" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
     },
     {
       "id": 2, "title": "Error budget remaining (99.5% target)", "type": "stat",
       "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "1 - ((1 - avg_over_time(slo:http_availability:ratio_rate1h[30d])) / 0.005)" }]
+      "targets": [{ "expr": "1 - ((1 - avg_over_time(slo:http_availability:ratio_rate1h[30d])) / 0.005)" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
     },
     {
       "id": 3, "title": "API p95 vs 500ms target", "type": "timeseries",
@@ -27,37 +29,43 @@
       "targets": [
         { "expr": "slo:http_request_duration:p95", "legendFormat": "p95" },
         { "expr": "0.5", "legendFormat": "target" }
-      ]
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
     },
     {
       "id": 4, "title": "Fast burn rate", "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "(1 - slo:http_availability:ratio_rate5m) / 0.005", "legendFormat": "burn rate (5m)" }]
+      "targets": [{ "expr": "(1 - slo:http_availability:ratio_rate5m) / 0.005", "legendFormat": "burn rate (5m)" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
     },
     {
       "id": 5, "title": "30-day availability trend", "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "slo:http_availability:ratio_rate1h", "legendFormat": "{{service_name}}" }]
+      "targets": [{ "expr": "slo:http_availability:ratio_rate1h", "legendFormat": "{{service_name}}" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
     },
     {
       "id": 6, "title": "Ingestion success rate", "type": "stat",
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 14 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum(rate(rag_ingestion_step_duration_seconds_count{step=\"index\",outcome=\"success\"}[30d])) / sum(rate(rag_ingestion_step_duration_seconds_count{step=\"index\"}[30d]))" }]
+      "targets": [{ "expr": "sum(rate(rag_ingestion_step_duration_seconds_count{step=\"index\",outcome=\"success\"}[30d])) / sum(rate(rag_ingestion_step_duration_seconds_count{step=\"index\"}[30d]))" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
     },
     {
       "id": 7, "title": "Publish -> PARSING p95", "type": "stat",
       "gridPos": { "h": 6, "w": 8, "x": 8, "y": 14 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "slo:messaging_publish_duration:p95" }]
+      "targets": [{ "expr": "slo:messaging_publish_duration:p95" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
     },
     {
       "id": 8, "title": "Consumer lag", "type": "timeseries",
       "gridPos": { "h": 6, "w": 8, "x": 16, "y": 14 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "rag_messaging_consumer_lag" }]
+      "targets": [{ "expr": "rag_messaging_consumer_lag" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
     }
   ]
 }

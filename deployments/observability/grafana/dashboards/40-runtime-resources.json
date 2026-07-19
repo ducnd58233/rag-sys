@@ -52,7 +52,8 @@
       "id": 5, "title": "CPU time by service", "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (service_name) (rate(process_runtime_cpu_time_seconds_total[5m]))", "legendFormat": "{{service_name}}" }]
+      "targets": [{ "expr": "sum by (service_name) (rate(process_runtime_cpu_time_seconds_total[5m]))", "legendFormat": "{{service_name}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
     },
     {
       "id": 6, "title": "GC collections", "type": "timeseries",
@@ -61,7 +62,8 @@
       "targets": [
         { "expr": "rate(process_runtime_gc_count_total[5m])", "legendFormat": "{{service_name}} runtime" },
         { "expr": "rate(cpython_gc_collections_total[5m])", "legendFormat": "{{service_name}} cpython" }
-      ]
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
     }
   ]
 }
