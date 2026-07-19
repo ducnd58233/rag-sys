@@ -35,7 +35,9 @@ class QueryPlan:
     def strategy(self) -> str:
         return "decomposed" if self.is_complex else "single_hop"
 
-    def retrieval_queries(self, original_query: str, *, max_queries: int) -> tuple[str, ...]:
+    def retrieval_queries(
+        self, original_query: str, *, max_queries: int
+    ) -> tuple[str, ...]:
         queries: list[str] = [original_query]
         seen = {_fingerprint(original_query)}
         for sub_question in self.sub_questions:

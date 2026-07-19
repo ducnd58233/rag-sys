@@ -6,11 +6,14 @@ from src.shared.kernel.errors import (
     ValidationDomainError,
 )
 
+
 class RetrievalError(DomainException):
     pass
 
+
 class RetrievalValidationError(RetrievalError, ValidationDomainError):
     pass
+
 
 class RetrievalInternalError(RetrievalError, InternalDomainError):
     pass

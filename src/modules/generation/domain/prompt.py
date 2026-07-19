@@ -44,8 +44,7 @@ class GroundedPromptBuilder:
             for i, c in enumerate(contexts, start=1)
         )
         intent_block = "\n".join(
-            f"[{i}] {question}"
-            for i, question in enumerate(sub_questions, start=1)
+            f"[{i}] {question}" for i, question in enumerate(sub_questions, start=1)
         )
         intent_instruction = (
             f"\n\nANSWER INTENTS:\n{intent_block}\n"
@@ -59,6 +58,6 @@ class GroundedPromptBuilder:
             f"QUESTION: {query}"
             f"{intent_instruction}\n\n"
             f"If insufficient, set refused=true and answer="
-            f"\"{REFUSAL_ANSWER}\" with cited_indices=[]."
+            f'"{REFUSAL_ANSWER}" with cited_indices=[].'
         )
         return _SYSTEM, user

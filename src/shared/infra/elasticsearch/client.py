@@ -1,5 +1,7 @@
-from src.shared.configs.settings import ElasticsearchSettings
 from elasticsearch import AsyncElasticsearch
+
+from src.shared.configs.settings import ElasticsearchSettings
+
 
 class Elasticsearch:
     def __init__(self, settings: ElasticsearchSettings):
