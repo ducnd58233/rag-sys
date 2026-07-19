@@ -5,6 +5,8 @@ import logging
 from src.modules.document.app.ports import IDocumentUnitOfWork
 from src.modules.document.domain.models import (
     DocumentProcessingStatus,
+    DocumentVersionRecord,
+    StoredObjectRecord,
     StoredObjectStatus,
 )
 from src.modules.ingestion.app.dto import IngestDocumentRequest, IngestDocumentResult
@@ -48,6 +50,19 @@ class IngestDocumentUseCase:
         request: IngestDocumentRequest,
     ) -> IngestDocumentResult:
         source = await self._load_source_and_mark_parsing(request)
+
+        if source.processing_status is DocumentProcessingStatus.INDEXED:
+            logger.info(
+                "Document version already indexed; skipping re-ingestion",
+                extra={"document_version_id": source.document_version_id},
+            )
+            return IngestDocumentResult(
+                document_id=source.document_id.value,
+                document_version_id=source.document_version_id,
+                version_no=source.version_no,
+                chunk_count=0,
+                status=IngestionStatus.COMPLETED,
+            )
 
         try:
             async with self._source_resolver.open(
@@ -141,6 +156,14 @@ class IngestDocumentUseCase:
                     message="Document source is incomplete",
                 )
 
+            if version.processing_status is DocumentProcessingStatus.INDEXED:
+                return self._build_source(
+                    request,
+                    version,
+                    stored_object,
+                    processing_status=DocumentProcessingStatus.INDEXED,
+                )
+
             if stored_object.status is not StoredObjectStatus.AVAILABLE:
                 raise IngestionConflictError(
                     message="Stored object is not available",
@@ -152,20 +175,35 @@ class IngestDocumentUseCase:
                 status=DocumentProcessingStatus.PARSING,
             )
 
-            return DocumentVersionSource(
-                org_id=request.org_id,
-                document_id=DocumentId(version.document_id),
-                document_version_id=version.id,
-                storage_object_id=stored_object.id,
-                version_no=version.version_no,
-                bucket=stored_object.bucket,
-                object_key=stored_object.object_key,
-                filename=version.filename,
-                mime_type=version.mime_type,
+            return self._build_source(
+                request,
+                version,
+                stored_object,
                 processing_status=DocumentProcessingStatus.PARSING,
-                size_bytes=stored_object.size_bytes,
-                checksum_sha256=stored_object.checksum_sha256,
             )
+
+    def _build_source(
+        self,
+        request: IngestDocumentRequest,
+        version: DocumentVersionRecord,
+        stored_object: StoredObjectRecord,
+        *,
+        processing_status: DocumentProcessingStatus,
+    ) -> DocumentVersionSource:
+        return DocumentVersionSource(
+            org_id=request.org_id,
+            document_id=DocumentId(version.document_id),
+            document_version_id=version.id,
+            storage_object_id=stored_object.id,
+            version_no=version.version_no,
+            bucket=stored_object.bucket,
+            object_key=stored_object.object_key,
+            filename=version.filename,
+            mime_type=version.mime_type,
+            processing_status=processing_status,
+            size_bytes=stored_object.size_bytes,
+            checksum_sha256=stored_object.checksum_sha256,
+        )
 
     async def _mark_indexed(
         self,

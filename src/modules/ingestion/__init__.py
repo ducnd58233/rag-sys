@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from src.modules.document.app.ports import IDocumentUnitOfWork
+from src.modules.ingestion.app.handlers.ingestion_requested import (
+    IngestionRequestedHandler,
+)
 from src.modules.ingestion.app.use_cases.ingest_document import IngestDocumentUseCase
 from src.modules.ingestion.infra.persistence.es_vector_store import (
     ElasticsearchVectorStore,
@@ -45,3 +48,9 @@ class IngestionComponentFactory:
                 embedding_settings=settings.embedding,
             ),
         )
+
+    @staticmethod
+    def build_ingestion_handler(
+        ingest_document: IngestDocumentUseCase,
+    ) -> IngestionRequestedHandler:
+        return IngestionRequestedHandler(ingest_document)
