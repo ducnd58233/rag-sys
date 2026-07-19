@@ -9,7 +9,7 @@ from src.modules.document import (
     CompleteDocumentUploadUseCase,
     CreateDocumentUploadUrlUseCase,
     DocumentComponentFactory,
-    ReconcileStaleUploadsUseCase,
+    PublishIngestionOutboxEventsUseCase,
 )
 from src.modules.document.infra.messaging import KafkaIngestionRequestPublisher
 from src.modules.document.infra.unit_of_work import SqlAlchemyDocumentUnitOfWork
@@ -46,7 +46,7 @@ class AppContainer:
     kafka_publisher: AioKafkaPublisher
     create_document_upload: CreateDocumentUploadUrlUseCase
     complete_document_upload: CompleteDocumentUploadUseCase
-    reconcile_stale_uploads: ReconcileStaleUploadsUseCase
+    publish_ingestion_outbox_events: PublishIngestionOutboxEventsUseCase
     ingest_document: IngestDocumentUseCase
     request_ingestion: RequestIngestionUseCase
     ingestion_handler: IngestionRequestedHandler
@@ -105,9 +105,6 @@ def build_container(
         object_storage=object_storage,
         id_generator=id_generator,
         ingestion_publisher=ingestion_publisher,
-        reconciliation_grace_period_seconds=(
-            resolved.ingestion.reconciliation_grace_period_seconds
-        ),
     )
     ingestion_components = IngestionComponentFactory.build(
         document_uow=document_uow,
@@ -115,7 +112,7 @@ def build_container(
         settings=resolved,
         elasticsearch=elasticsearch,
         embedder=embedding_model,
-        ingestion_publisher=ingestion_publisher,
+        id_generator=id_generator,
     )
     retrieval_components = RetrievalComponentFactory.build(
         settings=resolved,
@@ -137,7 +134,9 @@ def build_container(
         kafka_publisher=kafka_publisher,
         create_document_upload=(document_components.create_upload_url),
         complete_document_upload=(document_components.complete_upload),
-        reconcile_stale_uploads=document_components.reconcile_stale_uploads,
+        publish_ingestion_outbox_events=(
+            document_components.publish_ingestion_outbox_events
+        ),
         ingest_document=ingestion_components.ingest_document,
         request_ingestion=ingestion_components.request_ingestion,
         ingestion_handler=ingestion_components.ingestion_handler,

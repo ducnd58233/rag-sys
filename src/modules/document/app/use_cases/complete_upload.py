@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import logging
 import re
 
 from src.modules.document.app.dto import CompleteUploadRequest, CompleteUploadResult
-from src.modules.document.app.ports import (
-    IDocumentUnitOfWork,
-    IIngestionRequestPublisher,
-)
+from src.modules.document.app.ports import IDocumentUnitOfWork
 from src.modules.document.domain.errors import (
     DocumentConflictError,
     DocumentInternalError,
@@ -17,16 +13,16 @@ from src.modules.document.domain.errors import (
 from src.modules.document.domain.models import (
     DocumentRecord,
     DocumentVersionRecord,
+    IngestionOutboxEventRecord,
+    IngestionOutboxEventStatus,
     StoredObjectStatus,
 )
-from src.shared.app.ports.message_queue import MessageQueueError
+from src.shared.app.ports import IIdGenerator
 from src.shared.app.ports.object_storage import (
     IObjectStorage,
     ObjectStorageError,
     StorageBucket,
 )
-
-logger = logging.getLogger(__name__)
 
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
@@ -37,11 +33,11 @@ class CompleteDocumentUploadUseCase:
         *,
         document_uow: IDocumentUnitOfWork,
         object_storage: IObjectStorage,
-        ingestion_publisher: IIngestionRequestPublisher,
+        id_generator: IIdGenerator,
     ) -> None:
         self._document_uow = document_uow
         self._object_storage = object_storage
-        self._ingestion_publisher = ingestion_publisher
+        self._id_generator = id_generator
 
     async def execute(
         self,
@@ -50,7 +46,7 @@ class CompleteDocumentUploadUseCase:
         checksum = request.checksum_sha256.strip().lower()
         if _SHA256_PATTERN.fullmatch(checksum) is None:
             raise DocumentValidationError(
-                message=("checksum_sha256 must contain " "64 hexadecimal characters"),
+                message=("checksum_sha256 must contain 64 hexadecimal characters"),
             )
 
         async with self._document_uow.begin() as transaction:
@@ -87,7 +83,10 @@ class CompleteDocumentUploadUseCase:
                     message="Upload was completed with another checksum",
                 )
 
-            await self._request_ingestion(document, version)
+            async with self._document_uow.begin() as transaction:
+                await transaction.ingestion_outbox.enqueue(
+                    self._build_outbox_event(document, version),
+                )
 
             return CompleteUploadResult(
                 document_id=document.id,
@@ -113,7 +112,7 @@ class CompleteDocumentUploadUseCase:
 
         if actual_object.size_bytes != stored_object.size_bytes:
             raise DocumentConflictError(
-                message=("Uploaded object size does not match " "the requested size"),
+                message=("Uploaded object size does not match the requested size"),
             )
 
         actual_content_type = (
@@ -124,7 +123,7 @@ class CompleteDocumentUploadUseCase:
         if actual_content_type != stored_object.content_type.lower():
             raise DocumentConflictError(
                 message=(
-                    "Uploaded object content type does not match " "the requested type"
+                    "Uploaded object content type does not match the requested type"
                 ),
             )
 
@@ -146,7 +145,9 @@ class CompleteDocumentUploadUseCase:
                 document_version_id=version.id,
             )
 
-        await self._request_ingestion(document, version)
+            await transaction.ingestion_outbox.enqueue(
+                self._build_outbox_event(document, version),
+            )
 
         return CompleteUploadResult(
             document_id=document.id,
@@ -154,21 +155,16 @@ class CompleteDocumentUploadUseCase:
             version_no=version.version_no,
         )
 
-    async def _request_ingestion(
+    def _build_outbox_event(
         self,
         document: DocumentRecord,
         version: DocumentVersionRecord,
-    ) -> None:
-        try:
-            await self._ingestion_publisher.request_ingestion(
-                org_id=document.org_id,
-                document_id=document.id,
-                document_version_id=version.id,
-                version_no=version.version_no,
-            )
-        except MessageQueueError:
-            logger.warning(
-                "Could not publish ingestion request; "
-                "version stays UPLOADED for reconciliation",
-                extra={"document_version_id": version.id},
-            )
+    ) -> IngestionOutboxEventRecord:
+        return IngestionOutboxEventRecord(
+            id=self._id_generator.next_id(),
+            org_id=document.org_id,
+            document_id=document.id,
+            document_version_id=version.id,
+            version_no=version.version_no,
+            status=IngestionOutboxEventStatus.PENDING,
+        )

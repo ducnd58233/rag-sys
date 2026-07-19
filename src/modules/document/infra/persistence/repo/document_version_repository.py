@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select, update
@@ -9,13 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.modules.document.domain.models import (
     DocumentProcessingStatus,
     DocumentVersionRecord,
-    StaleUploadedVersion,
-    StoredObjectStatus,
 )
-from src.modules.document.infra.persistence.orm import (
-    DocumentVersionRow,
-    StoredObjectRow,
-)
+from src.modules.document.infra.persistence.orm import DocumentVersionRow
 
 
 class SqlAlchemyDocumentVersionRepository:
@@ -96,43 +90,6 @@ class SqlAlchemyDocumentVersionRepository:
             .values(processing_status=status.value)
         )
         await self._session.execute(statement)
-
-    async def find_stale_uploaded(
-        self,
-        *,
-        older_than: datetime,
-        limit: int,
-    ) -> Sequence[StaleUploadedVersion]:
-        statement = (
-            select(
-                DocumentVersionRow.org_id,
-                DocumentVersionRow.document_id,
-                DocumentVersionRow.id,
-                DocumentVersionRow.version_no,
-            )
-            .join(
-                StoredObjectRow,
-                StoredObjectRow.id == DocumentVersionRow.storage_object_id,
-            )
-            .where(
-                DocumentVersionRow.processing_status
-                == DocumentProcessingStatus.UPLOADED.value,
-                StoredObjectRow.status == StoredObjectStatus.AVAILABLE.value,
-                StoredObjectRow.available_at.is_not(None),
-                StoredObjectRow.available_at < older_than,
-            )
-            .limit(limit)
-        )
-        rows = await self._session.execute(statement)
-        return [
-            StaleUploadedVersion(
-                org_id=row.org_id,
-                document_id=row.document_id,
-                document_version_id=row.id,
-                version_no=row.version_no,
-            )
-            for row in rows
-        ]
 
     def _to_record(
         self,

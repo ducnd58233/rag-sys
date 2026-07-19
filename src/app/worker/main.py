@@ -50,13 +50,13 @@ async def _run() -> None:
     )
     runtimes = [consumer_runtime]
 
-    if container.settings.ingestion.reconciliation_enabled:
-        reconciliation_runtime = PeriodicRuntime(
-            task=_discard_result(container.reconcile_stale_uploads.execute),
-            interval_seconds=container.settings.ingestion.reconciliation_interval_seconds,
-            name="reconcile-stale-uploads",
+    if container.settings.ingestion.outbox_relay_enabled:
+        outbox_relay_runtime = PeriodicRuntime(
+            task=_discard_result(container.publish_ingestion_outbox_events.execute),
+            interval_seconds=container.settings.ingestion.outbox_relay_interval_seconds,
+            name="publish-ingestion-outbox-events",
         )
-        runtimes.append(reconciliation_runtime)
+        runtimes.append(outbox_relay_runtime)
 
     if sys.platform != "win32":
         loop = asyncio.get_running_loop()

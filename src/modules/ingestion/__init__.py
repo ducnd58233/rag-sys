@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.modules.document.app.ports import (
-    IDocumentUnitOfWork,
-    IIngestionRequestPublisher,
-)
+from src.modules.document.app.ports import IDocumentUnitOfWork
 from src.modules.ingestion.app.handlers.ingestion_requested import (
     IngestionRequestedHandler,
 )
@@ -20,7 +17,7 @@ from src.modules.ingestion.infra.processors.factory import DocumentProcessorFact
 from src.modules.ingestion.infra.sources.object_storage_resolver import (
     ObjectStorageSourceResolver,
 )
-from src.shared.app.ports import IEmbeddingModel, IObjectStorage
+from src.shared.app.ports import IEmbeddingModel, IIdGenerator, IObjectStorage
 from src.shared.configs.settings import Settings
 from src.shared.infra.elasticsearch.client import Elasticsearch
 
@@ -48,7 +45,7 @@ class IngestionComponentFactory:
         settings: Settings,
         elasticsearch: Elasticsearch,
         embedder: IEmbeddingModel,
-        ingestion_publisher: IIngestionRequestPublisher,
+        id_generator: IIdGenerator,
     ) -> IngestionComponents:
         ingestion = settings.ingestion
 
@@ -71,7 +68,7 @@ class IngestionComponentFactory:
             ingest_document=ingest_document,
             request_ingestion=RequestIngestionUseCase(
                 doc_uow=document_uow,
-                ingestion_publisher=ingestion_publisher,
+                id_generator=id_generator,
             ),
             ingestion_handler=IngestionRequestedHandler(ingest_document),
         )

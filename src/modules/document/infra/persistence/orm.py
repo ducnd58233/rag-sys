@@ -70,3 +70,22 @@ class StoredObjectRow(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
     )
+
+
+class IngestionOutboxEventRow(Base):
+    __tablename__ = "ingestion_outbox_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    org_id: Mapped[int] = mapped_column(BigInteger)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"),
+    )
+    document_version_id: Mapped[int] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="CASCADE"),
+    )
+    version_no: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+    )
