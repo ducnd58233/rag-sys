@@ -114,19 +114,21 @@
 
 ## Task 5: Update Multi-Intent Grounded Synthesis
 
+**Status:** Complete
+
 **Description:** Update the grounded prompt and structured answer schema so the model must cover each detected intent when context supports it. Unsupported intents should be stated as unsupported by the provided context rather than silently omitted.
 
 **Acceptance criteria:**
-- [ ] Prompt includes the original question and detected sub-questions.
-- [ ] Structured output can represent cited indices and intent coverage without changing the public API.
-- [ ] Final answer for the Transformer sample covers architecture and attention calculation when both are supported.
-- [ ] Citation validation still rejects answers with no valid citations.
+- [x] Prompt includes the original question and detected sub-questions.
+- [x] Structured output can represent cited indices and intent coverage without changing the public API.
+- [x] Final answer for the Transformer sample covers architecture and attention calculation when both are supported.
+- [x] Citation validation still rejects answers with no valid citations.
 
 **Verification:**
-- [ ] Compile check: `uv run python -m compileall src`
-- [ ] Import smoke for prompt and schema modules.
-- [ ] Manual API check confirms answer includes the attention formula when retrieved context contains it.
-- [ ] No `tests/` directory is added.
+- [x] Compile check: `uv run python -m compileall src`
+- [x] Import smoke for prompt and schema modules.
+- [x] Manual use-case check confirms answer includes the attention formula when retrieved context contains it.
+- [x] No `tests/` directory is added.
 
 **Dependencies:** Task 4
 
@@ -210,10 +212,10 @@
 
 ## Checkpoint: After Tasks 4-5
 
-- [ ] Simple ask path still works.
-- [ ] Complex ask path retrieves more than one query.
-- [ ] Transformer compound query returns both architecture and attention calculation when evidence exists.
-- [ ] Public response schema remains `query`, `answer`, `citations`, `refused`.
+- [x] Simple ask path still works.
+- [x] Complex ask path retrieves more than one query.
+- [x] Transformer compound query returns both architecture and attention calculation when evidence exists.
+- [x] Public response schema remains `query`, `answer`, `citations`, `refused`.
 
 ## Checkpoint: After Tasks 6-7
 

@@ -12,6 +12,14 @@ class GroundedAnswerSchema(BaseModel):
         default_factory=list,
         description="1-based indices of supporting context chunks.",
     )
+    covered_questions: list[int] = Field(
+        default_factory=list,
+        description="1-based answer-intent indices covered by the answer.",
+    )
+    unsupported_questions: list[int] = Field(
+        default_factory=list,
+        description="1-based answer-intent indices not supported by context.",
+    )
 
 
 class QueryAnalysisSchema(BaseModel):

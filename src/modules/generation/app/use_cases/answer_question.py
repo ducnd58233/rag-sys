@@ -127,7 +127,11 @@ class AnswerQuestionUseCase:
                         refused=True,
                     )
 
-                system, user = self._prompt.build(query, contexts)
+                system, user = self._prompt.build(
+                    query,
+                    contexts,
+                    sub_questions=query_plan.sub_questions,
+                )
                 structured = await self._chat.complete_structured(
                     system=system,
                     user=user,
