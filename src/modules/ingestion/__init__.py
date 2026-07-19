@@ -20,8 +20,6 @@ __all__ = [
 
 
 class IngestionComponentFactory:
-    """Builds ingestion application services."""
-
     @staticmethod
     def build_ingestion_use_case(
         *,

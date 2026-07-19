@@ -1,1 +1,0 @@
-"""Retrieval HTTP API."""

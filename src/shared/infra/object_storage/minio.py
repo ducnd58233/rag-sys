@@ -15,8 +15,6 @@ from src.shared.configs.settings import ObjectStorageSettings
 
 
 class MinioObjectStorage:
-    """MinIO implementation of the object-storage port."""
-
     def __init__(self, settings: ObjectStorageSettings) -> None:
         self._client = Minio(
             settings.endpoint,
