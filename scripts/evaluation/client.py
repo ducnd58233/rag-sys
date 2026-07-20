@@ -24,9 +24,7 @@ class RetrievalResponse:
     strategies: tuple[str, ...]
 
 
-# Talks to the running app over HTTP rather than importing RetrieveUseCase directly,
-# so a measured run includes real serialization, middleware, and the actual
-# composition root - the same thing an actual caller would see.
+# Talks to the running app over HTTP, not RetrieveUseCase directly, to measure what a real caller sees.
 class EvalHttpClient:
     def __init__(self, base_url: str, *, timeout_seconds: float = 30.0) -> None:
         self._base_url = base_url.rstrip("/")

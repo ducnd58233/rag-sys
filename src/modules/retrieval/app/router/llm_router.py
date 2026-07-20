@@ -22,11 +22,15 @@ Return JSON with:
 
 Use only strategy names provided by the user message.
 Prefer one strategy for confident cases.
-Use multiple strategies when evidence needs different retrieval modes.
+Use multiple strategies when evidence needs different retrieval modes - there is no
+limit on how many, use as many as the evidence genuinely calls for.
 Use temporal when the query asks for latest, recency, versions, or state at a time.
 For temporal "as of" queries, set as_of to an ISO-8601 timestamp inferred from the query.
 Use graph when the query asks about relationships, dependencies, causes, references, or multi-hop links.
-Set query to the best short search phrase for each selected strategy.
+Use structured when the query names a specific identifier - a chunk id, document id,
+filename, or source path - and set that strategy's query to the literal identifier
+extracted from the text, not a paraphrase.
+Set query to the best short search phrase for each other selected strategy.
 Do not answer the query.
 """.strip()
 
@@ -64,7 +68,6 @@ class LlmRouter:
             result,
             top_k=top_k,
             allowed_strategies=self._allowed_strategies,
-            max_strategies=self._settings.max_concurrent_strategies,
         )
         if plan is None:
             try:
@@ -75,7 +78,6 @@ class LlmRouter:
                 result,
                 top_k=top_k,
                 allowed_strategies=self._allowed_strategies,
-                max_strategies=self._settings.max_concurrent_strategies,
             )
         return plan or _fallback(top_k, reason="llm_router_empty")
 
@@ -128,7 +130,6 @@ def _plan_from_result(
     *,
     top_k: int,
     allowed_strategies: frozenset[str],
-    max_strategies: int,
 ) -> RetrievalPlan | None:
     selected = [
         StrategySelection(
@@ -141,9 +142,7 @@ def _plan_from_result(
         for item in result.strategies
         if item.name in allowed_strategies
     ]
-    selected = sorted(selected, key=lambda item: item.weight, reverse=True)[
-        :max_strategies
-    ]
+    selected = sorted(selected, key=lambda item: item.weight, reverse=True)
     if not selected:
         return None
     return RetrievalPlan(

@@ -11,8 +11,17 @@ from src.modules.retrieval.infra.elasticsearch.helper import (
     _metadata_as_str_map,
     build_filter_clauses,
 )
-from src.shared.configs.settings import ElasticsearchSettings, RoutingSettings
+from src.shared.configs.settings import ElasticsearchSettings
 from src.shared.infra.elasticsearch.client import Elasticsearch
+
+# Same field names the index mapping uses (es_vector_store.py) - not configuration.
+_IDENTIFIER_FIELDS: tuple[str, ...] = (
+    "chunk_id",
+    "document_id",
+    "document_version_id",
+    "metadata.filename",
+    "metadata.source",
+)
 
 
 class StructuredStrategy(IRetrievalStrategy):
@@ -20,11 +29,10 @@ class StructuredStrategy(IRetrievalStrategy):
         self,
         elasticsearch: Elasticsearch,
         elasticsearch_settings: ElasticsearchSettings,
-        routing_settings: RoutingSettings,
     ) -> None:
         self._client = elasticsearch.client
         self._index = elasticsearch_settings.index
-        self._fields = tuple(routing_settings.structured_fields)
+        self._fields = _IDENTIFIER_FIELDS
 
     @property
     def name(self) -> str:

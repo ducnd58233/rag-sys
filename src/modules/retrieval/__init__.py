@@ -59,7 +59,6 @@ class RetrievalComponentFactory:
             StructuredStrategy(
                 elasticsearch,
                 settings.elasticsearch,
-                settings.routing,
             ),
             TemporalStrategy(
                 elasticsearch,
@@ -87,8 +86,7 @@ class RetrievalComponentFactory:
             tuple(strategies),
         )
         query_router = CompositeQueryRouter(
-            settings.routing,
-            RuleRouter(settings.routing),
+            RuleRouter(),
             LlmRouter(
                 settings.routing,
                 chat_model,

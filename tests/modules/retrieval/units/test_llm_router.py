@@ -65,7 +65,7 @@ class SlowChatModel(FakeChatModel):
 
 
 @pytest.mark.asyncio
-async def test_llm_router_uses_structured_temperature_zero_and_caps_strategies() -> (
+async def test_llm_router_uses_structured_temperature_zero_and_keeps_all_selected() -> (
     None
 ):
     chat = FakeChatModel(
@@ -82,22 +82,25 @@ async def test_llm_router_uses_structured_temperature_zero_and_caps_strategies()
         ]
     )
     router = LlmRouter(
-        RoutingSettings(max_concurrent_strategies=2),
+        RoutingSettings(),
         chat,
         allowed_strategies=("lexical", "semantic", "structured"),
     )
 
     plan = await router.route("compare policy versions", filters=_filters(), top_k=6)
 
+    # No cap: every selected strategy comes through, sorted by weight.
     assert [strategy.name for strategy in plan.strategies] == [
         "lexical",
         "structured",
+        "semantic",
     ]
     assert [strategy.query for strategy in plan.strategies] == [
         "policy version",
         None,
+        None,
     ]
-    assert [strategy.top_k for strategy in plan.strategies] == [6, 6]
+    assert [strategy.top_k for strategy in plan.strategies] == [6, 6, 6]
     assert plan.router_kind == RouterKind.LLM
     assert plan.reason == "mixed"
     assert chat.calls[0]["temperature"] == 0.0
@@ -221,11 +224,8 @@ async def test_llm_router_timeout_falls_back_to_hybrid() -> None:
 
 @pytest.mark.asyncio
 async def test_composite_router_uses_llm_router_when_available() -> None:
-    settings = RoutingSettings(
-        identifier_patterns=[r"deploy-\d+"],
-    )
     llm_router = LlmRouter(
-        settings,
+        RoutingSettings(),
         FakeChatModel(
             [
                 {
@@ -237,7 +237,7 @@ async def test_composite_router_uses_llm_router_when_available() -> None:
         ),
         allowed_strategies=("semantic",),
     )
-    router = CompositeQueryRouter(settings, RuleRouter(settings), llm_router)
+    router = CompositeQueryRouter(RuleRouter(), llm_router)
 
     plan = await router.route("explain architecture", filters=_filters(), top_k=5)
 
