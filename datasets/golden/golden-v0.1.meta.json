@@ -4,5 +4,5 @@
   "case_count": 28,
   "corpus_id": "attention-lineage-v1",
   "reviewed": false,
-  "notes": "LLM-drafted from the assistant's existing knowledge of these well-known papers. Not yet cross-checked against the indexed corpus text by a human. Do not treat as ground truth until FR-EVAL-1 review is done (docs/rag-evaluation/TASKS.md T1-03)."
+  "notes": "LLM-drafted from the assistant's existing knowledge of these well-known papers. Not yet cross-checked against the indexed corpus text by a human. Do not treat as ground truth until a human review pass is done."
 }

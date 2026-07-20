@@ -1,18 +1,3 @@
-"""Prime a local stack with the evaluation fixture corpus.
-
-Uploads and ingests every file under datasets/{pdf,md,docx}/ through the app's own
-composition root (src.bootstrap.build_container), calling the same IngestDocumentUseCase
-the production worker eventually runs - but in-process, bypassing Kafka. There is no HTTP
-endpoint to poll for "is this document indexed yet" (see docs/rag-evaluation/PLAN.md
-ADR-EV-002-REV), so priming a local evaluation stack calls the use case directly instead
-of waiting on the async outbox/worker pipeline. scripts/evaluation/run.py, which measures
-retrieval quality, still talks to the running app over HTTP (ADR-EV-001) - only fixture
-setup takes this shortcut.
-
-Requires `make docker-up` and datasets/pdf/ already populated
-(`uv run poe eval-download-corpus`).
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -89,6 +74,10 @@ async def _index_file(
         ),
     )
 
+    # Calls the worker's own use case directly instead of enqueueing and waiting on
+    # Kafka: there is no HTTP endpoint to poll for "is this document indexed yet",
+    # so priming a local stack for evaluation takes the in-process shortcut. The
+    # eval runner itself (run.py) still measures over HTTP, not through this path.
     result = await container.ingest_document.execute(
         IngestDocumentRequest(
             org_id=org_id,
@@ -122,7 +111,7 @@ async def index_corpus(*, org_id: int, user_id: int) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser()
     parser.add_argument("--org-id", type=int, default=DEFAULT_EVAL_ORG_ID)
     parser.add_argument("--user-id", type=int, default=DEFAULT_EVAL_USER_ID)
     args = parser.parse_args(argv)

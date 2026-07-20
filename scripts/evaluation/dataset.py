@@ -1,10 +1,3 @@
-"""Load and validate the golden evaluation dataset (docs/rag-evaluation/SPEC.md FR-EVAL-1).
-
-A malformed case must fail loudly here, at load time, not silently produce a wrong metric
-later - a metric computed over a case with an inconsistent schema looks exactly like a
-metric computed over a valid one.
-"""
-
 from __future__ import annotations
 
 import json

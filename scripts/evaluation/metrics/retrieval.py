@@ -1,10 +1,3 @@
-"""Retrieval metrics (docs/rag-evaluation/SPEC.md FR-EVAL-2).
-
-Pure functions: document IDs and grades in, a number out. No I/O, no global state - that
-is what makes them provable against hand-computed values (see
-tests/evaluation/test_retrieval_metrics.py), which is the entire basis for trusting them.
-"""
-
 from __future__ import annotations
 
 import math

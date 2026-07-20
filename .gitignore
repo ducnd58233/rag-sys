@@ -28,9 +28,8 @@ server/.valiq-*/
 .idea/
 *.code-workspace.user
 
-# Evaluation corpus fixtures (fetched by scripts/evaluation/download_corpus.py;
-# not committed, see docs/rag-evaluation/PLAN.md ADR-EV-006) and run output
-# (exported locally, see docs/rag-evaluation/SPEC.md D5 revision).
+# Evaluation corpus fixtures (fetched by scripts/evaluation/download_corpus.py,
+# not committed) and run output (exported locally per run, not committed).
 datasets/pdf/*
 !datasets/pdf/.gitkeep
 datasets/md/*

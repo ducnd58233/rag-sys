@@ -1,10 +1,3 @@
-"""Fetch the evaluation fixture corpus (see datasets/manifest.json) from arXiv.
-
-PDFs are not committed to the repository (docs/rag-evaluation/PLAN.md ADR-EV-006): this
-script re-fetches them into datasets/pdf/, which is gitignored. Run it once before
-scripts/evaluation/index_corpus.py.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -87,7 +80,7 @@ def download_corpus(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser()
     parser.add_argument(
         "--force",
         action="store_true",

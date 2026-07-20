@@ -1,7 +1,3 @@
-"""Async HTTP client against the running app's retrieval API (ADR-EV-001: the harness
-measures over HTTP, not by importing use cases, so it measures what a real caller sees).
-"""
-
 from __future__ import annotations
 
 import time
@@ -24,8 +20,12 @@ class RetrievalResponse:
     items: tuple[RetrievedChunk, ...]
     latency_ms: float
     router_kind: str
+    strategies: tuple[str, ...]
 
 
+# Talks to the running app over HTTP rather than importing RetrieveUseCase directly,
+# so a measured run includes real serialization, middleware, and the actual
+# composition root - the same thing an actual caller would see.
 class EvalHttpClient:
     def __init__(self, base_url: str, *, timeout_seconds: float = 30.0) -> None:
         self._base_url = base_url.rstrip("/")
@@ -77,4 +77,7 @@ class EvalHttpClient:
             items=items,
             latency_ms=latency_ms,
             router_kind=payload["plan"]["router_kind"],
+            strategies=tuple(
+                selection["name"] for selection in payload["plan"]["strategies"]
+            ),
         )

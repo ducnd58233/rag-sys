@@ -1,7 +1,7 @@
 {
   "corpus_id": "attention-lineage-v1",
   "description": "A small, genuinely citation-linked set of public arXiv papers in the 'Attention Is All You Need' lineage. Chosen for real multi-hop and temporal/version structure (RoBERTa explicitly revises BERT; GPT-3 and BERT both build on the Transformer; RAG and LoRA both build on the earlier models) rather than synthetic documents.",
-  "license_note": "Papers are fetched on demand from arXiv by scripts/evaluation/download_corpus.py and are not committed to this repository (see docs/rag-evaluation/PLAN.md ADR-EV-006). Each paper remains subject to its own arXiv license; check https://arxiv.org/abs/<id> before redistributing.",
+  "license_note": "Papers are fetched on demand from arXiv by scripts/evaluation/download_corpus.py and are not committed to this repository. Each paper remains subject to its own arXiv license; check https://arxiv.org/abs/<id> before redistributing.",
   "papers": [
     {
       "arxiv_id": "1706.03762",

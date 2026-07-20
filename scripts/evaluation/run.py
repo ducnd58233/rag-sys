@@ -1,12 +1,3 @@
-"""Retrieval-only evaluation entry point (docs/rag-evaluation/SPEC.md FR-EVAL-2, FR-EVAL-9,
-FR-EVAL-11, T2-02). Loads the golden dataset, retrieves against the running app over HTTP
-(ADR-EV-001), scores every case with scripts/evaluation/metrics/retrieval.py, and writes a
-run directory under runs/evaluation/<MM-DD-YYYY>-<slug>/.
-
-Requires the app running (`uv run app`) with the fixture corpus already indexed
-(`uv run poe eval-index-corpus`).
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -102,6 +93,7 @@ def _score_case(
         "retrieved_filenames": retrieved_filenames,
         "scores": [item.score for item in response.items],
         "router_kind": response.router_kind,
+        "strategies": list(response.strategies),
         "latency_ms": response.latency_ms,
         "metrics": {
             "recall_at_k": recall_at_k(retrieved_filenames, relevant, top_k),
@@ -200,7 +192,7 @@ async def run_evaluation(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=Path, default=_DEFAULT_DATASET)
     parser.add_argument("--split", choices=["dev", "test"], default="dev")
     parser.add_argument("--base-url", default="http://localhost:8000")

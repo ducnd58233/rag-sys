@@ -7,7 +7,6 @@ from scripts.evaluation.metrics.retrieval import (
     reciprocal_rank,
 )
 
-# Worked example from docs/rag-evaluation/SPEC.md FR-EVAL-2.
 _RELEVANT = {"doc_2", "doc_8", "doc_15"}
 _RETRIEVED = ["doc_8", "doc_4", "doc_15", "doc_20", "doc_7"]
 
