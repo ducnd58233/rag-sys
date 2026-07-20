@@ -68,12 +68,23 @@ class Neo4jDocumentGraphStore:
             MATCH (source:Entity {org_id: $org_id, name: relation.source})
             MATCH (target:Entity {org_id: $org_id, name: relation.target})
             MERGE (source)-[edge:RELATED {kind: relation.kind}]->(target)
+            WITH edge, relation, reduce(
+                acc = {
+                    chunk_ids: coalesce(edge.chunk_ids, []),
+                    chunk_document_version_ids: coalesce(edge.chunk_document_version_ids, [])
+                },
+                chunk_id IN relation.chunk_ids |
+                CASE WHEN chunk_id IN acc.chunk_ids
+                    THEN acc
+                    ELSE {
+                        chunk_ids: acc.chunk_ids + chunk_id,
+                        chunk_document_version_ids: acc.chunk_document_version_ids + $document_version_id
+                    }
+                END
+            ) AS merged
             SET edge.document_version_id = $document_version_id,
-                edge.chunk_ids = reduce(
-                    acc = coalesce(edge.chunk_ids, []),
-                    chunk_id IN relation.chunk_ids |
-                    CASE WHEN chunk_id IN acc THEN acc ELSE acc + chunk_id END
-                )
+                edge.chunk_ids = merged.chunk_ids,
+                edge.chunk_document_version_ids = merged.chunk_document_version_ids
             """,
             {
                 "org_id": source.org_id,
