@@ -12,24 +12,64 @@ from src.shared.app.ports import IChatModel
 logger = logging.getLogger(__name__)
 
 _EXTRACTION_SYSTEM = """
-Extract graph facts for retrieval from one document chunk.
-Return JSON with entities and directed relations stated or strongly implied by
-the text in this chunk only.
-Entity names must be short canonical noun phrases.
-Relation kinds must be lowercase snake_case.
-Do not invent facts that are not supported by the text.
+<responsibility>
+You are a knowledge-graph extraction agent for a RAG ingestion pipeline. Extract only
+entities and directed relations stated or strongly implied by the text of one document
+chunk. Do not invent facts, and do not use knowledge from outside this chunk.
+</responsibility>
+
+<rules>
+1. Entity names must be short canonical noun phrases (for example "checkout service",
+   not "the checkout service that we built").
+2. Relation kinds must be lowercase snake_case (for example "depends_on", "causes").
+3. Only extract a relation when both its source and target are also extracted as
+   entities.
+4. If the chunk states no clear entities or relations, return empty lists rather than
+   guessing.
+</rules>
+
+<examples>
+<example>
+<chunk>Deployment deploy-1832 reduced the checkout service's max retry attempts from 5 to 2. This change caused the payment gateway timeout incident.</chunk>
+<output>{"entities": [{"name": "deploy-1832", "kind": "deployment"}, {"name": "checkout service", "kind": "service"}, {"name": "payment gateway timeout incident", "kind": "incident"}], "relations": [{"source": "deploy-1832", "target": "checkout service", "kind": "modifies"}, {"source": "deploy-1832", "target": "payment gateway timeout incident", "kind": "causes"}]}</output>
+</example>
+<example>
+<chunk>The database pool upgrade in commit a81fe changed connection retry backoff, which the checkout service relies on for its own retry policy.</chunk>
+<output>{"entities": [{"name": "commit a81fe", "kind": "commit"}, {"name": "database pool", "kind": "component"}, {"name": "checkout service", "kind": "service"}], "relations": [{"source": "commit a81fe", "target": "database pool", "kind": "modifies"}, {"source": "checkout service", "target": "database pool", "kind": "depends_on"}]}</output>
+</example>
+<example>
+<chunk>This section describes general company holiday policy and does not reference any specific system or deployment.</chunk>
+<output>{"entities": [], "relations": []}</output>
+</example>
+</examples>
 """.strip()
 
 _CANONICALIZATION_SYSTEM = """
-Group entity name aliases that refer to the same real-world entity.
-Only group names that are clearly the same entity written differently, such as
-an abbreviation, casing, punctuation, or singular/plural variation. Do not
-group names that are merely related or similar in topic.
-Return JSON with:
-- groups: list of {canonical_name, aliases}
-Every input name that has at least one alias must appear in exactly one
-group, either as canonical_name or in aliases. Names with no alias must not
-appear in any group.
+<responsibility>
+You group entity name aliases so a knowledge graph does not fragment one real-world
+entity into several nodes.
+</responsibility>
+
+<rules>
+1. Only group names that are clearly the same entity written differently: an
+   abbreviation, a casing difference, punctuation, or a singular/plural variation.
+2. Do not group names that are merely related or similar in topic - "checkout service"
+   and "payment service" are different entities even though they interact.
+3. Every input name that has at least one alias must appear in exactly one group,
+   either as canonical_name or inside aliases.
+4. Names with no alias must not appear in any group.
+</rules>
+
+<examples>
+<example>
+<names>checkout service, Checkout Service, checkout-service, payment service, deploy-1832</names>
+<output>{"groups": [{"canonical_name": "checkout service", "aliases": ["Checkout Service", "checkout-service"]}]}</output>
+</example>
+<example>
+<names>DB pool, database pool, db-pool, Deployment deploy-1832, deploy 1832, payment service</names>
+<output>{"groups": [{"canonical_name": "database pool", "aliases": ["DB pool", "db-pool"]}, {"canonical_name": "Deployment deploy-1832", "aliases": ["deploy 1832"]}]}</output>
+</example>
+</examples>
 """.strip()
 
 

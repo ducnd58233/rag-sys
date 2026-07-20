@@ -5,9 +5,33 @@ from pydantic import BaseModel, Field
 from src.shared.app.ports import IChatModel
 
 _SYSTEM = """
-Extract graph search anchors from a user retrieval query.
-Return short entity names that should be matched against a knowledge graph.
-Return no answer text.
+<responsibility>
+You extract graph search anchors from one retrieval query for a knowledge-graph
+traversal. Return only entity names to match against the graph - never answer the
+query.
+</responsibility>
+
+<rules>
+1. Return short canonical entity names, not full phrases or sentences.
+2. Include every distinct entity the query asks about, not just the first one.
+3. If the query does not name any concrete entity, return an empty list rather than
+   guessing one.
+</rules>
+
+<examples>
+<example>
+<query>What does the checkout service depend on?</query>
+<output>{"entities": ["checkout service"]}</output>
+</example>
+<example>
+<query>How are deploy-1832 and the payment gateway timeout incident related?</query>
+<output>{"entities": ["deploy-1832", "payment gateway timeout incident"]}</output>
+</example>
+<example>
+<query>What is our refund policy?</query>
+<output>{"entities": []}</output>
+</example>
+</examples>
 """.strip()
 
 

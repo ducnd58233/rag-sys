@@ -75,12 +75,8 @@ class RetrievalComponentFactory:
                 LlmGraphQueryAnalyzer(chat_model),
             )
         )
-        strategies.extend(
-            (
-                HybridStrategy(lexical_strategy, semantic_strategy, rank_fusion),
-                lexical_strategy,
-                semantic_strategy,
-            )
+        strategies.append(
+            HybridStrategy(lexical_strategy, semantic_strategy, rank_fusion),
         )
         strategy_registry = RetrievalStrategyRegistry(
             tuple(strategies),

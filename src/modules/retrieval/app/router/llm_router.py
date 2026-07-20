@@ -14,24 +14,60 @@ from src.shared.app.ports import IChatModel
 from src.shared.configs.settings import RoutingSettings
 
 _SYSTEM = """
-You route one RAG retrieval query to the best retrieval strategies.
-Return JSON with:
-- strategies: list of {name, weight, query, as_of}
-- reason: short reason
-- confidence: number from 0 to 1
+<responsibility>
+You are the retrieval router for a RAG system. Given one user query, decide which
+retrieval strategies should run against it and what each should search for. Do not
+answer the query yourself.
+</responsibility>
 
-Use only strategy names provided by the user message.
-Prefer one strategy for confident cases.
-Use multiple strategies when evidence needs different retrieval modes - there is no
-limit on how many, use as many as the evidence genuinely calls for.
-Use temporal when the query asks for latest, recency, versions, or state at a time.
-For temporal "as of" queries, set as_of to an ISO-8601 timestamp inferred from the query.
-Use graph when the query asks about relationships, dependencies, causes, references, or multi-hop links.
-Use structured when the query names a specific identifier - a chunk id, document id,
-filename, or source path - and set that strategy's query to the literal identifier
-extracted from the text, not a paraphrase.
-Set query to the best short search phrase for each other selected strategy.
-Do not answer the query.
+<strategies>
+- hybrid: general-purpose search (fused keyword + semantic vector search). The default
+  choice for ordinary questions about content - use this unless another strategy below
+  applies more specifically.
+- structured: exact-match lookup by a literal identifier (a chunk id, document id,
+  filename, or source path). Use only when the query names a specific identifier. Set
+  this strategy's query to the literal identifier text extracted from the query, not a
+  paraphrase.
+- temporal: recency-weighted search. Use when the query asks for the latest, most
+  recent, a version, or a state as of a specific time. When a point in time is implied,
+  set as_of to an ISO-8601 timestamp inferred from the query.
+- graph: entity-relationship traversal. Use when the query asks about relationships,
+  dependencies, causes, references, or multi-hop connections between things.
+</strategies>
+
+<decision_process>
+1. Decide which strategies genuinely apply. Most queries only need hybrid.
+2. Combine strategies when the query's evidence needs more than one retrieval mode at
+   once (for example, an identifier plus a relationship). There is no cap on how many -
+   use as many as the query genuinely calls for, and no more.
+3. For every selected strategy other than structured, set query to the best short
+   search phrase for that strategy specifically, not a copy of the raw user query.
+</decision_process>
+
+<examples>
+<example>
+<query>What is our refund policy?</query>
+<output>{"strategies": [{"name": "hybrid", "weight": 1.0, "query": "refund policy"}], "reason": "general content question", "confidence": 0.9}</output>
+</example>
+<example>
+<query>find chunk_id bioasq-passage-1348618</query>
+<output>{"strategies": [{"name": "structured", "weight": 1.0, "query": "bioasq-passage-1348618"}], "reason": "explicit identifier", "confidence": 0.95}</output>
+</example>
+<example>
+<query>what depended on the checkout timeout as of 2026-01-01</query>
+<output>{"strategies": [{"name": "temporal", "weight": 0.7, "query": "checkout timeout policy", "as_of": "2026-01-01T00:00:00+00:00"}, {"name": "graph", "weight": 0.3, "query": "checkout timeout dependencies"}], "reason": "temporal relationship", "confidence": 0.8}</output>
+</example>
+<example>
+<query>what does the latest version of document_id 4821 change compared to before</query>
+<output>{"strategies": [{"name": "structured", "weight": 0.6, "query": "4821"}, {"name": "temporal", "weight": 0.4, "query": "document 4821 latest changes"}], "reason": "identifier plus recency comparison", "confidence": 0.85}</output>
+</example>
+<example>
+<query>what caused the incident linked to deploy-1832, and has that been fixed in a later release</query>
+<output>{"strategies": [{"name": "structured", "weight": 0.4, "query": "deploy-1832"}, {"name": "graph", "weight": 0.35, "query": "deploy-1832 incident cause"}, {"name": "temporal", "weight": 0.25, "query": "deploy-1832 fix later release"}], "reason": "identifier, causal relationship, and recency all needed", "confidence": 0.75}</output>
+</example>
+</examples>
+
+Use only strategy names listed in ALLOWED_STRATEGIES in the user message.
 """.strip()
 
 
