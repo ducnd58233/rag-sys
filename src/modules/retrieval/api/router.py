@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends
 
 from src.bootstrap import AppContainer
 from src.modules.retrieval.api.schemas import (
+    RetrievalPlanResponse,
     RetrievedChunkResponse,
     RetrieveRequestBody,
     RetrieveResponse,
+    StrategySelectionResponse,
 )
 from src.modules.retrieval.app.dto import RetrievalFilter, RetrieveRequest
 from src.shared.http.deps import get_container
@@ -35,6 +37,19 @@ async def search(
     )
     return RetrieveResponse(
         query=result.query,
+        plan=RetrievalPlanResponse(
+            strategies=[
+                StrategySelectionResponse(
+                    name=strategy.name,
+                    weight=strategy.weight,
+                    top_k=strategy.top_k,
+                )
+                for strategy in result.plan.strategies
+            ],
+            router_kind=result.plan.router_kind.value,
+            reason=result.plan.reason,
+            confidence=result.plan.confidence,
+        ),
         items=[
             RetrievedChunkResponse(
                 chunk_id=item.chunk_id,

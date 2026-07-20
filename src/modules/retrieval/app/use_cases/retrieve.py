@@ -12,6 +12,7 @@ from src.modules.retrieval.app.ports import (
 )
 from src.modules.retrieval.domain.errors import RetrievalValidationError
 from src.modules.retrieval.domain.models import HitChunk
+from src.modules.retrieval.domain.plan import RetrievalPlan
 from src.shared.app.ports import IEmbeddingModel
 from src.shared.configs.settings import RetrievalSettings
 
@@ -50,6 +51,7 @@ class RetrieveUseCase:
         )
         if top_k < 1:
             raise RetrievalValidationError("top_k must be greater than 0")
+        plan = RetrievalPlan.hybrid(top_k=top_k, reason="hybrid_default")
 
         vectors = await self._embedder.embed([query])
         if not vectors or not vectors[0]:
@@ -89,6 +91,7 @@ class RetrieveUseCase:
         )
         return RetrieveResult(
             query=query,
+            plan=plan,
             items=[
                 RetrievedItem(
                     chunk_id=hit.chunk_id,

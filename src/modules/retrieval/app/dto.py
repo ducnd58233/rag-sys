@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from src.modules.retrieval.domain.plan import RetrievalPlan
+
 
 @dataclass(frozen=True, slots=True)
 class RetrievalFilter:
@@ -31,3 +33,4 @@ class RetrievedItem:
 class RetrieveResult:
     query: str
     items: Sequence[RetrievedItem]
+    plan: RetrievalPlan

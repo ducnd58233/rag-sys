@@ -19,6 +19,20 @@ class RetrievedChunkResponse(BaseModel):
     metadata: dict[str, str]
 
 
+class StrategySelectionResponse(BaseModel):
+    name: str
+    weight: float
+    top_k: int
+
+
+class RetrievalPlanResponse(BaseModel):
+    strategies: list[StrategySelectionResponse]
+    router_kind: str
+    reason: str
+    confidence: float
+
+
 class RetrieveResponse(BaseModel):
     query: str
+    plan: RetrievalPlanResponse
     items: list[RetrievedChunkResponse]
