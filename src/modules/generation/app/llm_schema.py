@@ -20,6 +20,16 @@ class GroundedAnswerSchema(BaseModel):
     )
 
 
+class MathEvidenceSchema(BaseModel):
+    has_math_evidence: bool = Field(
+        description="True when formula_latex is visibly supported by context.",
+    )
+    formula_latex: str = Field(
+        default="",
+        description="Verified LaTeX formula evidence, or empty when unsupported.",
+    )
+
+
 class QueryIntentSchema(BaseModel):
     question: str = Field(
         description="Self-contained user intent question for answer synthesis.",

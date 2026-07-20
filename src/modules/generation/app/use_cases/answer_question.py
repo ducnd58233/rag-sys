@@ -11,7 +11,10 @@ from opentelemetry.trace import Status, StatusCode
 
 from src.modules.generation.app.context_merge import ContextMerger, RetrievedContextSet
 from src.modules.generation.app.dto import AskRequest, AskResult, CitationItem
-from src.modules.generation.app.llm_schema import GroundedAnswerSchema
+from src.modules.generation.app.llm_schema import (
+    GroundedAnswerSchema,
+    MathEvidenceSchema,
+)
 from src.modules.generation.app.ports import IContextRetriever
 from src.modules.generation.app.query_analysis import QueryAnalyzer, QueryPlan
 from src.modules.generation.domain.errors import GenerationValidationError
@@ -594,7 +597,30 @@ class AnswerQuestionUseCase:
         answer = result.content.strip()
         if not answer or answer.upper().rstrip(".") == "NO_MATH_EVIDENCE":
             return ""
-        return answer
+        with _tracer.start_as_current_span(
+            "generation.verify_math_evidence",
+            attributes={"rag.context.count": len(contexts)},
+        ):
+            system, user = self._prompt.build_math_evidence_review(
+                query,
+                contexts,
+                candidate=answer,
+            )
+            verified = await self._chat.complete_structured(
+                system=system,
+                user=user,
+                schema=MathEvidenceSchema,
+                temperature=None,
+                max_tokens=None,
+            )
+        checked = verified.formula_latex.strip()
+        if (
+            not verified.has_math_evidence
+            or not checked
+            or not _looks_like_math_evidence(checked)
+        ):
+            return ""
+        return checked
 
 
 def _supported_intent_indices(contexts: Sequence[ContextChunk]) -> tuple[int, ...]:
@@ -666,6 +692,12 @@ def _strip_numbered_prefix(answer: str) -> str:
         if answer.startswith(prefix):
             return answer[len(prefix) :].strip()
     return answer
+
+
+def _looks_like_math_evidence(value: str) -> bool:
+    return any(
+        marker in value for marker in ("=", "\\frac", "\\sum", "\\prod", "^", "_")
+    )
 
 
 def _missing_supported_intents(

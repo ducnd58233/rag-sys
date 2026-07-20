@@ -38,23 +38,21 @@ Rules:
    appear near the answer.
 11. When the question names a technical function or mechanism, add at least
    one equation-style retrieval query using compact notation from the name,
-   likely input variables, and nearby operators such as Concat, softmax,
-   sqrt, sin, cos, or projection matrices when those terms fit the question.
+   likely input variables, and notation terms that fit the question.
 
 Examples:
-- "What is transformers and how to calculate attention?"
+- "What is indexing and how do I calculate storage growth?"
   => is_complex=true, intents=[
-     {"question": "What is Transformer architecture?",
-      "retrieval_queries": ["Transformer architecture"]},
-     {"question": "How to calculate attention?",
+     {"question": "What is indexing?",
+      "retrieval_queries": ["indexing definition"]},
+     {"question": "How do I calculate storage growth?",
       "retrieval_queries": [
-        "calculate attention",
-        "attention calculation formula",
-        "scaled dot-product attention",
-        "Attention Q K V"
+        "calculate storage growth",
+        "storage growth formula",
+        "storage growth variables"
       ]}
   ]
-- "How to calculate attention?"
+- "How do I calculate storage growth?"
   => is_complex=false, intents=[]
 """.strip()
 
@@ -86,8 +84,7 @@ Rules:
    near the answer.
 10. When the question names a technical function or mechanism, add at least
    one equation-style retrieval query using compact notation from the name,
-   likely input variables, and nearby operators such as Concat, softmax,
-   sqrt, sin, cos, or projection matrices when those terms fit the question.
+   likely input variables, and notation terms that fit the question.
 """.strip()
 
 

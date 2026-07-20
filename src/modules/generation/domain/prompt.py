@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+﻿from collections.abc import Sequence
 
 from src.modules.generation.domain.models import ContextChunk
 
@@ -49,16 +49,19 @@ Rules:
    from OCR text.
 7. When MATH EVIDENCE is provided, do not add any other formula, equation, or
    step list. Explain only the copied formula and its variables.
-8. Do not create formulas, variants, or named methods that are not stated in
+8. When MATH EVIDENCE is not provided, do not create LaTeX from OCR-damaged
+   formula fragments yourself. State that the formula is not safely supported
+   if the context is ambiguous.
+9. Do not create formulas, variants, or named methods that are not stated in
    context.
-9. Do not invent a step-by-step procedure. If context provides a formula but
+10. Do not invent a step-by-step procedure. If context provides a formula but
    not explicit steps, explain the formula and variables only.
-10. Do not use bullet or numbered steps unless the context explicitly contains
+11. Do not use bullet or numbered steps unless the context explicitly contains
    procedural steps.
-11. Do not mention authors, contribution notes, venue, affiliation, or training
+12. Do not mention authors, contribution notes, venue, affiliation, or training
    hardware unless the question asks for those details.
-12. Keep the answer compact.
-13. If no context supports the question, return exactly:
+13. Keep the answer compact.
+14. If no context supports the question, return exactly:
    {REFUSAL_ANSWER}
 """.strip()
 
@@ -87,39 +90,61 @@ Rules:
 2. Extract only formulas relevant to the question.
 3. Convert OCR-damaged math into standard LaTeX display math.
 4. Preserve the variables and operations visible in context.
-5. Use surrounding text only to infer transpose placement, square-root
-   denominator placement, and matrix multiplication order.
+5. Use surrounding text only to disambiguate OCR layout, such as superscripts,
+   subscripts, fractions, roots, transposes, parentheses, matrix products,
+   concatenation, and projection matrices.
 6. If the question does not ask for a formula, calculation, equation, or
    computation, return NO_MATH_EVIDENCE unless the context explicitly states a
    named formula as the direct answer.
-7. If context shows Scaled Dot-Product Attention with Q, K, V, softmax, and
-   sqrt(dk), normalize it as:
-   \[
-   \operatorname{Attention}(Q,K,V)=\operatorname{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
-   \]
-8. In scaled dot-product attention, OCR text such as QKT means QK^T, not a
-   single variable named QKT.
-9. Never turn multiplication by V into division by V.
-10. If context shows sinusoidal positional encoding with PE, pos, i, dmodel,
-   sine, and cosine, normalize it as LaTeX formulas for the even and odd
-   dimensions.
-11. If the same source context shows MultiHead, Concat, headi, Attention, Q,
-   K, V, and learned projection matrices, normalize it as:
-   \[
-   \operatorname{MultiHead}(Q,K,V)=\operatorname{Concat}(\operatorname{head}_1,\ldots,\operatorname{head}_h)W^O
-   \]
-   \[
-   \operatorname{head}_i=\operatorname{Attention}(QW_i^Q,KW_i^K,VW_i^V)
-   \]
-   Do not infer this formula from prose alone.
-12. If no relevant formula appears, return exactly: NO_MATH_EVIDENCE
-13. Return only the normalized formula and a short variable note.
+7. Do not use memorized domain formulas. Normalize only formulas that are
+   visibly present in the supplied context.
+8. Do not invent missing variables, operators, denominators, exponents, or
+   output multipliers.
+9. Do not change multiplication into division, division into multiplication,
+   or concatenation into summation unless the context explicitly shows that
+   operation.
+10. If an OCR fragment is too ambiguous to normalize safely, return the
+   safest partial LaTeX plus a short ambiguity note instead of guessing.
+11. If no relevant formula appears, return exactly: NO_MATH_EVIDENCE
+12. Return only the normalized formula and a short variable note.
 
-Example OCR normalization:
-- OCR: Attention(Q,K,V ) = softmax( QKT √ dk )V
-- LaTeX: \[
-\operatorname{Attention}(Q,K,V)=\operatorname{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
-\]
+""".strip()
+
+_MATH_EVIDENCE_REVIEW_SYSTEM = r"""
+You are a math evidence verification agent for a RAG pipeline.
+Return structured output with:
+- has_math_evidence: boolean
+- formula_latex: string
+
+Rules:
+1. Compare the candidate math evidence against the supplied context.
+2. Set has_math_evidence=false and formula_latex="" if the candidate is prose,
+   a definition sentence, or only wraps prose in LaTeX text commands.
+3. Set has_math_evidence=false and formula_latex="" if the context does not
+   visibly contain a relevant formula, equation, or calculation.
+4. Correct OCR layout mistakes only when the source context supports the
+   correction through visible symbols, line breaks, or nearby formula prose.
+5. Use mathematical notation conventions for OCR layout: stacked text may
+   indicate fractions, letters offset after a symbol may indicate superscripts
+   or subscripts, and text after a closed parenthesized expression may indicate
+   multiplication.
+6. Preserve visible trailing factors. If context shows a variable or symbol
+   immediately after a closed parenthesized expression and it is not visibly in
+   a denominator, keep it as multiplication in formula_latex.
+7. Do not use memorized domain formulas. Do not add variables or operations
+   absent from context.
+8. Do not change multiplication into division, division into multiplication,
+   or concatenation into summation unless the context explicitly shows that
+   operation.
+9. Valid formula evidence must contain an equation or mathematical expression,
+   not just explanatory text.
+10. If the candidate contains one or more equations and the same function names,
+   variables, and operations are visible in context, set formula_latex to the
+   candidate unchanged.
+11. If the candidate is wrong but safely correctable from context, set
+   formula_latex to only the corrected LaTeX formula and a short variable note.
+12. If ambiguity remains, use the safest partial LaTeX plus a short ambiguity
+    note instead of guessing.
 """.strip()
 
 
@@ -160,9 +185,9 @@ class GroundedPromptBuilder:
             f"CONTEXT:\n{_context_block(contexts)}\n\n"
             f"QUESTION: {query}\n\n"
             "Answer this one intent only. If the context includes OCR-damaged "
-            "math, normalize it to LaTeX in the answer. If math evidence is "
-            "present, copy that formula exactly and do not create another "
-            "formula or a step list. "
+            "math and math evidence is present, copy that formula exactly and "
+            "do not create another formula or a step list. If math evidence "
+            "is absent, do not normalize OCR-damaged formulas yourself. "
             "Do not write bullet or numbered steps unless the context itself "
             "contains procedural steps."
         )
@@ -197,6 +222,20 @@ class GroundedPromptBuilder:
             "Normalize relevant OCR math into LaTeX."
         )
         return _MATH_EVIDENCE_SYSTEM, user
+
+    def build_math_evidence_review(
+        self,
+        query: str,
+        contexts: Sequence[ContextChunk],
+        candidate: str,
+    ) -> tuple[str, str]:
+        user = (
+            f"CONTEXT:\n{_context_block(contexts)}\n\n"
+            f"QUESTION: {query}\n\n"
+            f"CANDIDATE MATH EVIDENCE:\n{candidate}\n\n"
+            "Verify the candidate against the context."
+        )
+        return _MATH_EVIDENCE_REVIEW_SYSTEM, user
 
 
 def _context_block(contexts: Sequence[ContextChunk]) -> str:
