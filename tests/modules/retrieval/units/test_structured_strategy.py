@@ -18,11 +18,7 @@ from src.modules.retrieval.infra.strategies import (
     SemanticStrategy,
     StructuredStrategy,
 )
-from src.shared.configs.settings import (
-    ElasticsearchSettings,
-    RetrievalSettings,
-    RoutingSettings,
-)
+from src.shared.configs.settings import ElasticsearchSettings, RetrievalSettings
 
 
 class FakeElasticsearch:
@@ -74,27 +70,12 @@ class FakeDenseSearcher:
         return (_hit("semantic", score=1.0),)
 
 
-class FakeLlmRouter:
-    def __init__(self, plan: RetrievalPlan) -> None:
-        self._plan = plan
-
-    async def route(
-        self,
-        query: str,
-        *,
-        filters: RetrievalFilter,
-        top_k: int,
-    ) -> RetrievalPlan:
-        return self._plan
-
-
 @pytest.mark.asyncio
 async def test_structured_strategy_queries_document_scope_with_query_text() -> None:
     elasticsearch = FakeElasticsearch((_es_hit("deploy-1832"),))
     strategy = StructuredStrategy(
         elasticsearch,
         ElasticsearchSettings(index="test-index"),
-        RoutingSettings(structured_fields=["chunk_id"]),
     )
     plan = RetrievalPlan.single(
         strategy="structured",
@@ -129,12 +110,13 @@ async def test_structured_strategy_queries_document_scope_with_query_text() -> N
 
 
 @pytest.mark.asyncio
-async def test_structured_strategy_queries_configured_fields_for_identifier() -> None:
+async def test_structured_strategy_queries_identifier_fields_for_an_llm_extracted_query() -> (
+    None
+):
     elasticsearch = FakeElasticsearch((_es_hit("deploy-1832"),))
     strategy = StructuredStrategy(
         elasticsearch,
         ElasticsearchSettings(index="test-index"),
-        RoutingSettings(structured_fields=["chunk_id", "metadata.ticket"]),
     )
     plan = RetrievalPlan(
         strategies=(
@@ -144,7 +126,7 @@ async def test_structured_strategy_queries_configured_fields_for_identifier() ->
                 query="deploy-1832",
             ),
         ),
-        router_kind=RouterKind.RULE,
+        router_kind=RouterKind.LLM,
         reason="identifier",
         confidence=0.9,
     )
@@ -159,43 +141,28 @@ async def test_structured_strategy_queries_configured_fields_for_identifier() ->
     should = query["bool"]["must"][0]["bool"]["should"]
     assert should == [
         {"term": {"chunk_id": "deploy-1832"}},
-        {"term": {"metadata.ticket": "deploy-1832"}},
+        {"term": {"document_id": "deploy-1832"}},
+        {"term": {"document_version_id": "deploy-1832"}},
+        {"term": {"metadata.filename": "deploy-1832"}},
+        {"term": {"metadata.source": "deploy-1832"}},
     ]
 
 
 @pytest.mark.asyncio
-async def test_identifier_retrieval_path_skips_embedding() -> None:
+async def test_explicit_document_filter_path_skips_embedding_and_the_llm() -> None:
     retrieval_settings = RetrievalSettings(top_k=2)
-    routing_settings = RoutingSettings(
-        identifier_patterns=[r"deploy-\d+"],
-        structured_fields=["chunk_id"],
-    )
     elasticsearch = FakeElasticsearch((_es_hit("deploy-1832"),))
     embedder = FakeEmbedder()
     rank_fusion = ReciprocalRankFusion(rank_constant=retrieval_settings.rank_constant)
     structured = StructuredStrategy(
         elasticsearch,
         ElasticsearchSettings(index="test-index"),
-        routing_settings,
     )
     lexical = LexicalStrategy(FakeLexicalSearcher(), retrieval_settings)
     semantic = SemanticStrategy(embedder, FakeDenseSearcher(), retrieval_settings)
     use_case = RetrieveUseCase(
         retrieval_settings,
-        CompositeQueryRouter(
-            routing_settings,
-            RuleRouter(routing_settings),
-            FakeLlmRouter(
-                RetrievalPlan(
-                    strategies=(
-                        StrategySelection(name="semantic", weight=1.0, top_k=2),
-                    ),
-                    router_kind=RouterKind.LLM,
-                    reason="semantic",
-                    confidence=1.0,
-                )
-            ),
-        ),
+        CompositeQueryRouter(RuleRouter(), UnreachableLlmRouter()),
         RetrievalStrategyRegistry((structured, lexical, semantic)),
         rank_fusion,
     )
@@ -204,16 +171,27 @@ async def test_identifier_retrieval_path_skips_embedding() -> None:
         RetrieveRequest(
             query="show deploy-1832 status",
             top_k=2,
-            filters=RetrievalFilter(org_id=1),
+            filters=RetrievalFilter(org_id=1, document_id=42),
         )
     )
 
-    assert [strategy.name for strategy in result.plan.strategies] == [
-        "structured",
-        "lexical",
-    ]
+    assert [strategy.name for strategy in result.plan.strategies] == ["structured"]
     assert embedder.calls == []
     assert len(elasticsearch.client.searches) == 1
+
+
+class UnreachableLlmRouter:
+    async def route(
+        self,
+        query: str,
+        *,
+        filters: RetrievalFilter,
+        top_k: int,
+    ) -> RetrievalPlan:
+        raise AssertionError(
+            "the LLM router must not be reached when an explicit document filter "
+            "is given - the rule router should have handled it",
+        )
 
 
 def _selection(
@@ -232,7 +210,7 @@ def _es_hit(chunk_id: str) -> dict[str, object]:
             "chunk_id": chunk_id,
             "document_id": "doc-1",
             "content": "content",
-            "metadata": {"ticket": chunk_id},
+            "metadata": {},
         },
     }
 

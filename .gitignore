@@ -27,3 +27,11 @@ server/.valiq-*/
 # OS / IDE
 .idea/
 *.code-workspace.user
+
+# Evaluation datasets and run output - all reproducible via `uv run poe eval-prepare`.
+datasets/*/raw/*
+datasets/*/processed/*
+datasets/*/.index-progress.jsonl
+datasets/manifest.json
+runs/evaluation/*
+!runs/evaluation/.gitkeep

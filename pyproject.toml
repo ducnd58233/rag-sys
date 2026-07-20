@@ -5,7 +5,6 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "aiohttp>=3.14.1",
     "aiokafka>=0.14.0",
     "alembic[tz]>=1.18.5",
     "asyncpg>=0.31.0",
@@ -54,10 +53,10 @@ src_paths = ["src"]
 markers = [
     "integration: tests that need Docker via testcontainers, excluded by default",
 ]
-# Scoped to tests/modules, not just marker-filtered: collecting
-# tests/integration at all imports testcontainers and its Docker client,
-# which costs real time even when every test in it is deselected.
-testpaths = ["tests/modules"]
+# Scoped to tests/modules and tests/evaluation, not just marker-filtered:
+# collecting tests/integration at all imports testcontainers and its Docker
+# client, which costs real time even when every test in it is deselected.
+testpaths = ["tests/modules", "tests/evaluation"]
 
 [dependency-groups]
 dev = [
@@ -66,6 +65,13 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "testcontainers[elasticsearch,neo4j,postgres]>=4.14.2",
+]
+# scripts/evaluation/-only deps, kept out of the main install (see eval-prepare/eval-run below).
+evaluation = [
+    "aiohttp>=3.14.1",
+    "pyarrow>=18.0.0",
+    "pyyaml>=6.0.3",
+    "tqdm>=4.67.1",
 ]
 
 [tool.poe.tasks]
@@ -76,6 +82,8 @@ migrate-down = 'alembic downgrade -1'
 migrate-down-all = 'alembic downgrade base'
 test = "pytest"
 test-integration = "pytest tests/integration -m integration"
+eval-prepare = "uv run --group evaluation --no-sync python scripts/evaluation/prepare.py"
+eval-run = "uv run --group evaluation --no-sync python scripts/evaluation/run.py"
 
 [project.scripts]
 app = "src.app.api.main:run"

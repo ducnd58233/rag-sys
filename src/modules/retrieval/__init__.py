@@ -59,7 +59,6 @@ class RetrievalComponentFactory:
             StructuredStrategy(
                 elasticsearch,
                 settings.elasticsearch,
-                settings.routing,
             ),
             TemporalStrategy(
                 elasticsearch,
@@ -76,19 +75,14 @@ class RetrievalComponentFactory:
                 LlmGraphQueryAnalyzer(chat_model),
             )
         )
-        strategies.extend(
-            (
-                HybridStrategy(lexical_strategy, semantic_strategy, rank_fusion),
-                lexical_strategy,
-                semantic_strategy,
-            )
+        strategies.append(
+            HybridStrategy(lexical_strategy, semantic_strategy, rank_fusion),
         )
         strategy_registry = RetrievalStrategyRegistry(
             tuple(strategies),
         )
         query_router = CompositeQueryRouter(
-            settings.routing,
-            RuleRouter(settings.routing),
+            RuleRouter(),
             LlmRouter(
                 settings.routing,
                 chat_model,
