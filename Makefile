@@ -7,7 +7,7 @@ OBS_DIR := deployments/observability
 COMPOSE_OBS := -f $(OBS_DIR)/docker-compose.observability.yml
 COMPOSE_LANGFUSE := -f $(OBS_DIR)/docker-compose.langfuse.yml
 
-.PHONY: docker-up docker-down docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-download-corpus eval-index-corpus eval-dev
+.PHONY: docker-up docker-down docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-download-corpus eval-build-golden eval-index-corpus eval-dev
 
 docker-up:
 	docker compose $(COMPOSE_BASE) up -d
@@ -55,6 +55,9 @@ test-integration:
 
 eval-download-corpus:
 	uv run poe eval-download-corpus
+
+eval-build-golden:
+	uv run poe eval-build-golden
 
 eval-index-corpus:
 	uv run poe eval-index-corpus

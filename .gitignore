@@ -28,13 +28,12 @@ server/.valiq-*/
 .idea/
 *.code-workspace.user
 
-# Evaluation corpus fixtures (fetched by scripts/evaluation/download_corpus.py,
-# not committed) and run output (exported locally per run, not committed).
-datasets/pdf/*
-!datasets/pdf/.gitkeep
-datasets/md/*
-!datasets/md/.gitkeep
-datasets/docx/*
-!datasets/docx/.gitkeep
+# Evaluation corpus fixtures (fetched by scripts/evaluation/download_bioasq.py,
+# not committed), the golden dataset built from them (~6MB, exceeds the large-file
+# hook below - build it locally with `uv run poe eval-build-golden` instead), and
+# run output (exported locally per run, not committed).
+datasets/bioasq/raw/*
+datasets/bioasq/.index-progress.txt
+datasets/golden/bioasq-v1.jsonl
 runs/evaluation/*
 !runs/evaluation/.gitkeep

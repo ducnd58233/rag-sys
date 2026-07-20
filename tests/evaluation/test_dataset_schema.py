@@ -122,12 +122,14 @@ def test_malformed_json_line_fails_loudly(tmp_path: Path) -> None:
         load_dataset(path)
 
 
-@pytest.mark.parametrize("version", ["golden-v0.1", "golden-v0.2"])
-def test_committed_golden_dataset_loads_and_matches_its_content_hash(
-    version: str,
-) -> None:
-    dataset_path = _REPO_ROOT / "datasets" / "golden" / f"{version}.jsonl"
-    meta_path = _REPO_ROOT / "datasets" / "golden" / f"{version}.meta.json"
+def test_built_golden_dataset_loads_and_matches_its_content_hash() -> None:
+    dataset_path = _REPO_ROOT / "datasets" / "golden" / "bioasq-v1.jsonl"
+    meta_path = _REPO_ROOT / "datasets" / "golden" / "bioasq-v1.meta.json"
+    if not dataset_path.exists():
+        pytest.skip(
+            "bioasq-v1.jsonl is not committed (~6MB, exceeds the large-file hook) - "
+            "run `uv run poe eval-download-corpus && uv run poe eval-build-golden` first",
+        )
 
     cases = load_dataset(dataset_path)
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -136,16 +138,7 @@ def test_committed_golden_dataset_loads_and_matches_its_content_hash(
     actual_hash = "sha256:" + hashlib.sha256(dataset_path.read_bytes()).hexdigest()
     assert actual_hash == meta["content_hash"]
     assert len({case.id for case in cases}) == len(cases)
-
-
-def test_golden_v0_2_answerable_cases_are_tagged_with_a_target_strategy() -> None:
-    dataset_path = _REPO_ROOT / "datasets" / "golden" / "golden-v0.2.jsonl"
-    cases = load_dataset(dataset_path)
-
-    untagged = [
-        case.id
-        for case in cases
-        if case.answerable and not any(tag.startswith("target-") for tag in case.tags)
-    ]
-    assert untagged == []
-    assert len({case.id for case in cases}) == len(cases)
+    assert all(case.answerable for case in cases)
+    assert all(
+        set(case.relevance_grades) == set(case.relevant_document_ids) for case in cases
+    )

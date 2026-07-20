@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import time
 import urllib.error
@@ -9,34 +8,27 @@ import urllib.request
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_MANIFEST_PATH = _REPO_ROOT / "datasets" / "manifest.json"
-_PDF_DIR = _REPO_ROOT / "datasets" / "pdf"
+_RAW_DIR = _REPO_ROOT / "datasets" / "bioasq" / "raw"
 _USER_AGENT = "rag-sys-evaluation-corpus-downloader/1.0"
 _RETRY_ATTEMPTS = 3
 _RETRY_BACKOFF_SECONDS = 2.0
-_REQUEST_TIMEOUT_SECONDS = 30.0
+_REQUEST_TIMEOUT_SECONDS = 120.0
+_PARQUET_MAGIC = b"PAR1"
+
+_HF_API_ROOT = (
+    "https://huggingface.co/api/datasets/rag-datasets/rag-mini-bioasq/parquet"
+)
+_FILES = {
+    "question-answer-passages.parquet": f"{_HF_API_ROOT}/question-answer-passages/test/0.parquet",
+    "text-corpus.parquet": f"{_HF_API_ROOT}/text-corpus/passages/0.parquet",
+}
 
 
-def load_manifest(manifest_path: Path = _MANIFEST_PATH) -> list[dict[str, str]]:
-    with manifest_path.open("r", encoding="utf-8") as handle:
-        manifest = json.load(handle)
-    return manifest["papers"]
-
-
-def download_paper(
-    paper: dict[str, str],
-    *,
-    destination_dir: Path,
-    force: bool,
-) -> Path:
-    destination = destination_dir / paper["filename"]
+def download_file(url: str, *, destination: Path, force: bool) -> Path:
     if destination.exists() and not force:
         return destination
 
-    request = urllib.request.Request(
-        paper["pdf_url"],
-        headers={"User-Agent": _USER_AGENT},
-    )
+    request = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
     last_error: Exception | None = None
     for attempt in range(1, _RETRY_ATTEMPTS + 1):
         try:
@@ -45,12 +37,11 @@ def download_paper(
                 timeout=_REQUEST_TIMEOUT_SECONDS,
             ) as response:
                 payload = response.read()
-            if not payload.startswith(b"%PDF"):
+            if not payload.startswith(_PARQUET_MAGIC):
                 raise ValueError(
-                    f"{paper['pdf_url']} did not return a PDF (got "
-                    f"{len(payload)} bytes not starting with %PDF)",
+                    f"{url} did not return a parquet file (missing PAR1 magic header)",
                 )
-            destination_dir.mkdir(parents=True, exist_ok=True)
+            destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(payload)
             return destination
         except (urllib.error.URLError, ValueError) as error:
@@ -59,23 +50,20 @@ def download_paper(
                 time.sleep(_RETRY_BACKOFF_SECONDS * attempt)
 
     raise RuntimeError(
-        f"Could not download {paper['title']} ({paper['arxiv_id']}) after "
-        f"{_RETRY_ATTEMPTS} attempts",
+        f"Could not download {url} after {_RETRY_ATTEMPTS} attempts",
     ) from last_error
 
 
 def download_corpus(
     *,
-    manifest_path: Path = _MANIFEST_PATH,
-    destination_dir: Path = _PDF_DIR,
+    destination_dir: Path = _RAW_DIR,
     force: bool = False,
 ) -> list[Path]:
-    papers = load_manifest(manifest_path)
     downloaded: list[Path] = []
-    for paper in papers:
-        path = download_paper(paper, destination_dir=destination_dir, force=force)
+    for filename, url in _FILES.items():
+        path = download_file(url, destination=destination_dir / filename, force=force)
         downloaded.append(path)
-        print(f"ok  {paper['arxiv_id']}  {path.name}")
+        print(f"ok  {filename}  ({path.stat().st_size:,} bytes)")
     return downloaded
 
 
@@ -94,7 +82,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {error}", file=sys.stderr)
         return 1
 
-    print(f"\n{len(downloaded)} papers available in {_PDF_DIR}")
+    print(f"\n{len(downloaded)} files available in {_RAW_DIR}")
     return 0
 
 

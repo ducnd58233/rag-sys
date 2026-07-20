@@ -35,14 +35,15 @@ make test-integration  # real Postgres/Elasticsearch/Neo4j via Testcontainers, n
 
 ## Evaluation
 
-Retrieval quality is measured with a golden question set against a real, downloadable arXiv
-corpus, scored with deterministic metrics (recall/precision/hit-rate/MRR/nDCG) - see
-[`datasets/README.md`](datasets/README.md) for the corpus and dataset, and
-[`scripts/evaluation/`](scripts/evaluation) for the harness itself.
+Retrieval quality is measured with the [`rag-datasets/rag-mini-bioasq`](https://huggingface.co/datasets/rag-datasets/rag-mini-bioasq)
+benchmark (real BioASQ questions and passages, not self-generated), scored with deterministic
+metrics (recall/precision/hit-rate/MRR/nDCG) - see [`datasets/README.md`](datasets/README.md) for
+the corpus and dataset, and [`scripts/evaluation/`](scripts/evaluation) for the harness itself.
 
 ```bash
-uv run poe eval-download-corpus  # fetch the fixture corpus
-uv run poe eval-index-corpus     # index it into a running local stack
+uv run poe eval-download-corpus  # fetch the BioASQ parquet files
+uv run poe eval-build-golden     # convert the QA split into the golden dataset
+uv run poe eval-index-corpus     # index the passage corpus into a running local stack
 uv run poe eval-dev              # score retrieval against the dev split
 ```
 

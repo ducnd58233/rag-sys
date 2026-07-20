@@ -22,8 +22,9 @@ from scripts.evaluation.metrics.retrieval import (
 from scripts.evaluation.report import render_summary
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_DATASET = _REPO_ROOT / "datasets" / "golden" / "golden-v0.2.jsonl"
+_DEFAULT_DATASET = _REPO_ROOT / "datasets" / "golden" / "bioasq-v1.jsonl"
 _RUNS_DIR = _REPO_ROOT / "runs" / "evaluation"
+_LIMIT_SAMPLE_SEED = 20260720
 
 _ADJECTIVES = (
     "amber",
@@ -135,10 +136,16 @@ async def run_evaluation(
     top_k: int,
     runs: int,
     concurrency: int,
+    limit: int | None = None,
 ) -> Path:
     cases = list(load_dataset(dataset_path, split=split))  # type: ignore[arg-type]
     if not cases:
         raise ValueError(f"no cases found for split={split!r} in {dataset_path}")
+    if limit is not None and limit < len(cases):
+        # Fixed seed: a --limit run is reproducible across invocations, not a fresh random
+        # draw each time. This is a fast-iteration sample of the full benchmark, not a
+        # separate dataset - the headline numbers still come from an unlimited run.
+        cases = random.Random(_LIMIT_SAMPLE_SEED).sample(cases, limit)
 
     meta_path = dataset_path.parent / f"{dataset_path.stem}.meta.json"
     meta = (
@@ -171,6 +178,7 @@ async def run_evaluation(
         "corpus_id": meta.get("corpus_id", "unknown"),
         "split": split or "all",
         "case_count": len(cases),
+        "limit": limit,
         "base_url": base_url,
         "org_id": org_id,
         "top_k": top_k,
@@ -200,6 +208,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--top-k", type=int, default=10)
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--concurrency", type=int, default=5)
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help=(
+            "sample at most N cases from the (already split-filtered) dataset for a fast "
+            "local run, using a fixed seed for reproducibility. Omit for the full benchmark."
+        ),
+    )
     args = parser.parse_args(argv)
 
     asyncio.run(
@@ -211,6 +228,7 @@ def main(argv: list[str] | None = None) -> int:
             top_k=args.top_k,
             runs=args.runs,
             concurrency=args.concurrency,
+            limit=args.limit,
         ),
     )
     return 0
