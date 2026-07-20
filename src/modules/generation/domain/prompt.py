@@ -44,14 +44,21 @@ Rules:
    formula-like or step-like evidence, include it.
 5. If context contains OCR-damaged math, convert it to standard LaTeX math
    notation, but keep the same variables and operations from context.
-6. Do not create formulas, variants, or named methods that are not stated in
+6. If MATH EVIDENCE is provided, treat it as the authoritative normalized
+   formula for this intent. Copy its formula exactly and do not rewrite it
+   from OCR text.
+7. When MATH EVIDENCE is provided, do not add any other formula, equation, or
+   step list. Explain only the copied formula and its variables.
+8. Do not create formulas, variants, or named methods that are not stated in
    context.
-7. Do not invent a step-by-step procedure. If context provides a formula but
+9. Do not invent a step-by-step procedure. If context provides a formula but
    not explicit steps, explain the formula and variables only.
-8. Do not use bullet or numbered steps unless the context explicitly contains
+10. Do not use bullet or numbered steps unless the context explicitly contains
    procedural steps.
-9. Keep the answer to one compact paragraph.
-10. If no context supports the question, return exactly:
+11. Do not mention authors, contribution notes, venue, affiliation, or training
+   hardware unless the question asks for those details.
+12. Keep the answer compact.
+13. If no context supports the question, return exactly:
    {REFUSAL_ANSWER}
 """.strip()
 
@@ -82,13 +89,31 @@ Rules:
 4. Preserve the variables and operations visible in context.
 5. Use surrounding text only to infer transpose placement, square-root
    denominator placement, and matrix multiplication order.
-6. If context shows Scaled Dot-Product Attention with Q, K, V, softmax, and
+6. If the question does not ask for a formula, calculation, equation, or
+   computation, return NO_MATH_EVIDENCE unless the context explicitly states a
+   named formula as the direct answer.
+7. If context shows Scaled Dot-Product Attention with Q, K, V, softmax, and
    sqrt(dk), normalize it as:
    \[
    \operatorname{Attention}(Q,K,V)=\operatorname{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
    \]
-7. If no relevant formula appears, return exactly: NO_MATH_EVIDENCE
-8. Return only the normalized formula and a short variable note.
+8. In scaled dot-product attention, OCR text such as QKT means QK^T, not a
+   single variable named QKT.
+9. Never turn multiplication by V into division by V.
+10. If context shows sinusoidal positional encoding with PE, pos, i, dmodel,
+   sine, and cosine, normalize it as LaTeX formulas for the even and odd
+   dimensions.
+11. If the same source context shows MultiHead, Concat, headi, Attention, Q,
+   K, V, and learned projection matrices, normalize it as:
+   \[
+   \operatorname{MultiHead}(Q,K,V)=\operatorname{Concat}(\operatorname{head}_1,\ldots,\operatorname{head}_h)W^O
+   \]
+   \[
+   \operatorname{head}_i=\operatorname{Attention}(QW_i^Q,KW_i^K,VW_i^V)
+   \]
+   Do not infer this formula from prose alone.
+12. If no relevant formula appears, return exactly: NO_MATH_EVIDENCE
+13. Return only the normalized formula and a short variable note.
 
 Example OCR normalization:
 - OCR: Attention(Q,K,V ) = softmax( QKT √ dk )V
@@ -136,7 +161,8 @@ class GroundedPromptBuilder:
             f"QUESTION: {query}\n\n"
             "Answer this one intent only. If the context includes OCR-damaged "
             "math, normalize it to LaTeX in the answer. If math evidence is "
-            "relevant, copy that formula exactly and do not create another. "
+            "present, copy that formula exactly and do not create another "
+            "formula or a step list. "
             "Do not write bullet or numbered steps unless the context itself "
             "contains procedural steps."
         )

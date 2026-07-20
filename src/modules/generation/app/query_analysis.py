@@ -36,6 +36,10 @@ Rules:
 10. For calculation, equation, or formula intents, include retrieval queries
    for the formula name, variables, and equation terms that are likely to
    appear near the answer.
+11. When the question names a technical function or mechanism, add at least
+   one equation-style retrieval query using compact notation from the name,
+   likely input variables, and nearby operators such as Concat, softmax,
+   sqrt, sin, cos, or projection matrices when those terms fit the question.
 
 Examples:
 - "What is transformers and how to calculate attention?"
@@ -80,6 +84,10 @@ Rules:
 9. For calculation, equation, or formula intents, include retrieval queries for
    the formula name, variables, and equation terms that are likely to appear
    near the answer.
+10. When the question names a technical function or mechanism, add at least
+   one equation-style retrieval query using compact notation from the name,
+   likely input variables, and nearby operators such as Concat, softmax,
+   sqrt, sin, cos, or projection matrices when those terms fit the question.
 """.strip()
 
 

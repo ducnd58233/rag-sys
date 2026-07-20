@@ -40,6 +40,7 @@ class _IntentAnswer:
     intent_index: int
     answer: str = ""
     cited_indices: tuple[int, ...] = ()
+    has_math_evidence: bool = False
 
 
 def _citations_from_indices(
@@ -429,10 +430,6 @@ class AnswerQuestionUseCase:
         contexts: Sequence[ContextChunk],
         sub_questions: Sequence[str],
     ) -> GroundedAnswerSchema:
-        math_evidence = await self._extract_math_evidence(
-            query=query,
-            contexts=contexts,
-        )
         intent_results = []
         for intent_index, question in enumerate(sub_questions, start=1):
             intent_results.append(
@@ -440,7 +437,6 @@ class AnswerQuestionUseCase:
                     query=question,
                     intent_index=intent_index,
                     contexts=contexts,
-                    math_evidence=math_evidence,
                 )
             )
         answered = [result for result in intent_results if result.answer]
@@ -459,16 +455,18 @@ class AnswerQuestionUseCase:
         cited_indices: list[int] = []
         covered_questions: list[int] = []
         answer_parts: list[str] = []
+        has_math_evidence = False
         for result in answered:
             answer_parts.append(f"{result.intent_index}. {result.answer}")
             covered_questions.append(result.intent_index)
+            has_math_evidence = has_math_evidence or result.has_math_evidence
             for cited_index in result.cited_indices:
                 if cited_index not in cited_indices:
                     cited_indices.append(cited_index)
         draft_answer = "\n\n".join(answer_parts)
         final_answer = (
             draft_answer
-            if math_evidence
+            if has_math_evidence
             else await self._refine_complex_answer(
                 query=query,
                 contexts=contexts,
@@ -491,18 +489,28 @@ class AnswerQuestionUseCase:
         query: str,
         intent_index: int,
         contexts: Sequence[ContextChunk],
-        math_evidence: str = "",
     ) -> _IntentAnswer:
         indexed_contexts = _contexts_for_intent(contexts, intent_index)
         if not indexed_contexts:
             return _IntentAnswer(intent_index=intent_index)
 
-        local_contexts = tuple(context for _, context in indexed_contexts[:2])
+        local_indexed_contexts = indexed_contexts[:2]
+        math_indexed_contexts = _combine_indexed_contexts(
+            indexed_contexts[:3],
+            _unassigned_contexts(contexts)[:2],
+        )
+        local_contexts = tuple(context for _, context in local_indexed_contexts)
+        math_contexts = tuple(context for _, context in math_indexed_contexts)
+        math_evidence = await self._extract_math_evidence(
+            query=query,
+            contexts=math_contexts,
+        )
         with _tracer.start_as_current_span(
             "generation.answer_intent",
             attributes={
                 "rag.query.intent_index": intent_index,
                 "rag.context.count": len(local_contexts),
+                "rag.math_evidence.present": bool(math_evidence),
             },
         ):
             system, user = self._prompt.build_intent_text_answer(
@@ -521,11 +529,17 @@ class AnswerQuestionUseCase:
             return _IntentAnswer(intent_index=intent_index)
         if not answer:
             return _IntentAnswer(intent_index=intent_index)
+        cited_indices = local_indexed_contexts
+        if math_evidence:
+            cited_indices = _combine_indexed_contexts(
+                cited_indices, math_indexed_contexts
+            )
 
         return _IntentAnswer(
             intent_index=intent_index,
             answer=answer,
-            cited_indices=tuple(index for index, _ in indexed_contexts[:2]),
+            cited_indices=tuple(index for index, _ in cited_indices),
+            has_math_evidence=bool(math_evidence),
         )
 
     async def _refine_complex_answer(
@@ -610,6 +624,30 @@ def _contexts_for_intent(
         for index, context in enumerate(contexts, start=1)
         if intent_index in _context_intent_indices(context)
     )
+
+
+def _unassigned_contexts(
+    contexts: Sequence[ContextChunk],
+) -> tuple[tuple[int, ContextChunk], ...]:
+    return tuple(
+        (index, context)
+        for index, context in enumerate(contexts, start=1)
+        if not _context_intent_indices(context)
+    )
+
+
+def _combine_indexed_contexts(
+    primary: Sequence[tuple[int, ContextChunk]],
+    fallback: Sequence[tuple[int, ContextChunk]],
+) -> tuple[tuple[int, ContextChunk], ...]:
+    combined: list[tuple[int, ContextChunk]] = []
+    seen: set[int] = set()
+    for index, context in (*primary, *fallback):
+        if index in seen:
+            continue
+        seen.add(index)
+        combined.append((index, context))
+    return tuple(combined)
 
 
 def _context_intent_indices(context: ContextChunk) -> tuple[int, ...]:
