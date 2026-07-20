@@ -120,27 +120,48 @@ class QueryPlan:
     ) -> tuple[PlannedRetrievalQuery, ...]:
         queries: list[PlannedRetrievalQuery] = []
         seen: set[str] = set()
-        for intent_index, intent in enumerate(self.intents, start=1):
-            candidates = [intent.question, *intent.retrieval_queries]
-            for candidate in candidates:
-                key = _fingerprint(candidate)
-                if not key or key in seen:
-                    continue
-                seen.add(key)
-                queries.append(
-                    PlannedRetrievalQuery(
-                        query=candidate,
-                        intent_index=intent_index,
-                    )
+        candidate_groups = tuple(
+            (intent_index, (intent.question, *intent.retrieval_queries))
+            for intent_index, intent in enumerate(self.intents, start=1)
+        )
+
+        def append_query(candidate: str, intent_index: int | None) -> None:
+            key = _fingerprint(candidate)
+            if not key or key in seen or len(queries) >= max_queries:
+                return
+            seen.add(key)
+            queries.append(
+                PlannedRetrievalQuery(
+                    query=candidate,
+                    intent_index=intent_index,
                 )
+            )
+
+        for intent_index, candidates in candidate_groups:
+            for candidate in candidates:
+                before = len(queries)
+                append_query(candidate, intent_index)
+                if len(queries) > before:
+                    break
+            if len(queries) >= max_queries:
+                return tuple(queries)
+
+        fallback_query = self.rewritten_query or original_query
+        append_query(fallback_query, intent_index=None)
+        if len(queries) >= max_queries:
+            return tuple(queries)
+
+        max_candidate_count = max(
+            (len(candidates) for _, candidates in candidate_groups),
+            default=0,
+        )
+        for candidate_index in range(1, max_candidate_count):
+            for intent_index, candidates in candidate_groups:
+                if candidate_index >= len(candidates):
+                    continue
+                append_query(candidates[candidate_index], intent_index)
                 if len(queries) >= max_queries:
                     return tuple(queries)
-        fallback_query = self.rewritten_query or original_query
-        fallback_key = _fingerprint(fallback_query)
-        if fallback_key and fallback_key not in seen and len(queries) < max_queries:
-            queries.append(
-                PlannedRetrievalQuery(query=fallback_query, intent_index=None)
-            )
         return tuple(queries)
 
     def retrieval_queries(
