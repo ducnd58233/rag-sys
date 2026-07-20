@@ -106,6 +106,7 @@ def _score_case(
         "retrieved_document_ids": retrieved_ids,
         "scores": [item.score for item in response.items],
         "router_kind": response.router_kind,
+        "router_reason": response.router_reason,
         "strategies": list(response.strategies),
         "latency_ms": response.latency_ms,
         "metrics": {
@@ -286,7 +287,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--top-k", type=int, default=10)
     parser.add_argument("--runs", type=int, default=3)
-    parser.add_argument("--concurrency", type=int, default=5)
+    parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument(
         "--timeout-seconds",
         type=float,

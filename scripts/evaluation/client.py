@@ -20,6 +20,7 @@ class RetrievalResponse:
     items: tuple[RetrievedChunk, ...]
     latency_ms: float
     router_kind: str
+    router_reason: str
     strategies: tuple[str, ...]
 
 
@@ -77,6 +78,7 @@ class EvalHttpClient:
             items=items,
             latency_ms=latency_ms,
             router_kind=payload["plan"]["router_kind"],
+            router_reason=payload["plan"]["reason"],
             strategies=tuple(
                 selection["name"] for selection in payload["plan"]["strategies"]
             ),

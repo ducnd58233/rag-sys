@@ -71,6 +71,7 @@ async def test_retrieve_parses_items_router_kind_and_strategies() -> None:
     )
 
     assert response.router_kind == "auto"
+    assert response.router_reason == "hybrid query"
     assert response.strategies == ("hybrid", "graph")
     assert len(response.items) == 2
     assert response.items[0].filename == "1706.03762-attention-is-all-you-need.pdf"

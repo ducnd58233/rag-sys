@@ -157,7 +157,7 @@ class RoutingSettings(BaseSettings):
     )
     default_strategy: str = Field(default="hybrid")
     max_concurrent_strategies: int = Field(default=3, ge=1, le=6)
-    llm_router_timeout_seconds: float = Field(default=2.0, gt=0)
+    llm_router_timeout_seconds: float = Field(default=30.0, gt=0)
     identifier_patterns: list[str] = Field(default_factory=lambda: [r"[a-z]+-\d{3,}"])
     structured_fields: list[str] = Field(
         default_factory=lambda: [
