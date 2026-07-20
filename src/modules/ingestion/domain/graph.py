@@ -7,6 +7,7 @@ from dataclasses import dataclass
 class GraphEntity:
     name: str
     kind: str
+    chunk_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -14,6 +15,7 @@ class GraphRelation:
     source: str
     target: str
     kind: str
+    chunk_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

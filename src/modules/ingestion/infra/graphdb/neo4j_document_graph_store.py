@@ -35,7 +35,8 @@ class Neo4jDocumentGraphStore:
             UNWIND $entities AS entity
             MERGE (e:Entity {org_id: $org_id, name: entity.name})
             SET e.kind = entity.kind
-            MERGE (v)-[:MENTIONS]->(e)
+            MERGE (v)-[mentions:MENTIONS]->(e)
+            SET mentions.chunk_ids = entity.chunk_ids
             """,
             {
                 "org_id": source.org_id,
@@ -48,7 +49,11 @@ class Neo4jDocumentGraphStore:
                     source.valid_to.isoformat() if source.valid_to is not None else None
                 ),
                 "entities": [
-                    {"name": entity.name, "kind": entity.kind}
+                    {
+                        "name": entity.name,
+                        "kind": entity.kind,
+                        "chunk_ids": list(entity.chunk_ids),
+                    }
                     for entity in graph.entities
                 ],
             },
@@ -63,7 +68,12 @@ class Neo4jDocumentGraphStore:
             MATCH (source:Entity {org_id: $org_id, name: relation.source})
             MATCH (target:Entity {org_id: $org_id, name: relation.target})
             MERGE (source)-[edge:RELATED {kind: relation.kind}]->(target)
-            SET edge.document_version_id = $document_version_id
+            SET edge.document_version_id = $document_version_id,
+                edge.chunk_ids = reduce(
+                    acc = coalesce(edge.chunk_ids, []),
+                    chunk_id IN relation.chunk_ids |
+                    CASE WHEN chunk_id IN acc THEN acc ELSE acc + chunk_id END
+                )
             """,
             {
                 "org_id": source.org_id,
@@ -73,6 +83,7 @@ class Neo4jDocumentGraphStore:
                         "source": relation.source,
                         "target": relation.target,
                         "kind": relation.kind,
+                        "chunk_ids": list(relation.chunk_ids),
                     }
                     for relation in graph.relations
                 ],

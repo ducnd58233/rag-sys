@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from src.modules.retrieval.app.dto import RetrievalFilter
-from src.modules.retrieval.domain.models import HitChunk
+from src.modules.retrieval.domain.models import GraphPathEvidence, HitChunk
 from src.modules.retrieval.domain.plan import RetrievalPlan
 
 
@@ -53,14 +53,14 @@ class IRetrievalStrategy(Protocol):
 
 
 class IGraphSearcher(Protocol):
-    async def related_document_ids(
+    async def related_evidence(
         self,
         *,
         org_id: int,
         entities: Sequence[str],
         max_hops: int,
         limit: int,
-    ) -> Sequence[str]: ...
+    ) -> Sequence[GraphPathEvidence]: ...
 
 
 class IGraphQueryAnalyzer(Protocol):

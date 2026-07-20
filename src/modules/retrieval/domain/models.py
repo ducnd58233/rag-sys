@@ -11,3 +11,13 @@ class HitChunk:
     content: str
     score: float
     metadata: Mapping[str, str]
+
+
+@dataclass(frozen=True, slots=True)
+class GraphPathEvidence:
+    document_id: str
+    chunk_ids: tuple[str, ...]
+    anchor_entity: str
+    related_entity: str
+    relation_kinds: tuple[str, ...]
+    hops: int

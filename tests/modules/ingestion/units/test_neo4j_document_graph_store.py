@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pytest
 
 from src.modules.document.domain.models import DocumentProcessingStatus
-from src.modules.ingestion.domain.graph import DocumentGraph
+from src.modules.ingestion.domain.graph import DocumentGraph, GraphEntity, GraphRelation
 from src.modules.ingestion.domain.models import DocumentId, DocumentVersionSource
 from src.modules.ingestion.infra.graphdb.neo4j_document_graph_store import (
     Neo4jDocumentGraphStore,
@@ -56,6 +56,50 @@ async def test_graph_store_writes_version_without_extracted_entities() -> None:
     assert first_parameters["entities"] == []
     assert "MERGE (current)-[:SUPERSEDES]->(previous)" in supersedes_statement
     assert supersedes_parameters["previous_version_no"] == 1
+
+
+@pytest.mark.asyncio
+async def test_graph_store_writes_chunk_ids_on_mentions_and_related_edges() -> None:
+    graphdb = FakeGraphDb()
+    store = Neo4jDocumentGraphStore(graphdb)
+
+    await store.upsert(
+        source=_source(version_no=1),
+        graph=DocumentGraph(
+            entities=(
+                GraphEntity(name="Checkout", kind="service", chunk_ids=("c1", "c2")),
+                GraphEntity(name="Payment", kind="service", chunk_ids=("c2",)),
+            ),
+            relations=(
+                GraphRelation(
+                    source="Checkout",
+                    target="Payment",
+                    kind="depends_on",
+                    chunk_ids=("c2",),
+                ),
+            ),
+        ),
+    )
+
+    entity_statement, entity_parameters = graphdb.writes[0]
+    relation_statement, relation_parameters = graphdb.writes[1]
+
+    assert entity_parameters["entities"] == [
+        {"name": "Checkout", "kind": "service", "chunk_ids": ["c1", "c2"]},
+        {"name": "Payment", "kind": "service", "chunk_ids": ["c2"]},
+    ]
+    assert "mentions.chunk_ids" in entity_statement
+
+    assert relation_parameters["relations"] == [
+        {
+            "source": "Checkout",
+            "target": "Payment",
+            "kind": "depends_on",
+            "chunk_ids": ["c2"],
+        }
+    ]
+    assert "edge.chunk_ids" in relation_statement
+    assert "reduce(" in relation_statement
 
 
 def _source(*, version_no: int) -> DocumentVersionSource:

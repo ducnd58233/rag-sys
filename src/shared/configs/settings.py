@@ -184,6 +184,8 @@ class GraphDbSettings(BaseSettings):
     password: SecretStr = Field(default=SecretStr("rag-sys-dev"))
     database: str = Field(default="neo4j")
     extraction_max_characters: int = Field(default=12_000, ge=1)
+    extraction_max_tokens: int = Field(default=1024, ge=1)
+    canonicalization_max_tokens: int = Field(default=512, ge=1)
 
 
 class DatabaseSettings(BaseSettings):
