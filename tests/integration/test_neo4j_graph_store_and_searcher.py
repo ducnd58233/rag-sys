@@ -52,11 +52,17 @@ async def test_upsert_writes_entities_relations_and_chunk_ids_to_real_neo4j(
     store = Neo4jDocumentGraphStore(graphdb)
 
     await store.upsert(
-        source=_source(org_id=org_id, document_id=unique_id + 1, document_version_id=unique_id + 2),
+        source=_source(
+            org_id=org_id, document_id=unique_id + 1, document_version_id=unique_id + 2
+        ),
         graph=DocumentGraph(
             entities=(
-                GraphEntity(name=f"Checkout-{unique_id}", kind="service", chunk_ids=("c1", "c2")),
-                GraphEntity(name=f"Payment-{unique_id}", kind="service", chunk_ids=("c2",)),
+                GraphEntity(
+                    name=f"Checkout-{unique_id}", kind="service", chunk_ids=("c1", "c2")
+                ),
+                GraphEntity(
+                    name=f"Payment-{unique_id}", kind="service", chunk_ids=("c2",)
+                ),
             ),
             relations=(
                 GraphRelation(
@@ -102,7 +108,9 @@ async def test_upsert_accumulates_chunk_ids_across_separate_ingestions(
     payment = f"Payment-{unique_id}"
 
     await store.upsert(
-        source=_source(org_id=org_id, document_id=unique_id + 1, document_version_id=unique_id + 2),
+        source=_source(
+            org_id=org_id, document_id=unique_id + 1, document_version_id=unique_id + 2
+        ),
         graph=DocumentGraph(
             entities=(
                 GraphEntity(name=checkout, kind="service", chunk_ids=("doc1:c1",)),
@@ -110,13 +118,18 @@ async def test_upsert_accumulates_chunk_ids_across_separate_ingestions(
             ),
             relations=(
                 GraphRelation(
-                    source=checkout, target=payment, kind="depends_on", chunk_ids=("doc1:c1",)
+                    source=checkout,
+                    target=payment,
+                    kind="depends_on",
+                    chunk_ids=("doc1:c1",),
                 ),
             ),
         ),
     )
     await store.upsert(
-        source=_source(org_id=org_id, document_id=unique_id + 3, document_version_id=unique_id + 4),
+        source=_source(
+            org_id=org_id, document_id=unique_id + 3, document_version_id=unique_id + 4
+        ),
         graph=DocumentGraph(
             entities=(
                 GraphEntity(name=checkout, kind="service", chunk_ids=("doc2:c9",)),
@@ -124,7 +137,10 @@ async def test_upsert_accumulates_chunk_ids_across_separate_ingestions(
             ),
             relations=(
                 GraphRelation(
-                    source=checkout, target=payment, kind="depends_on", chunk_ids=("doc2:c9",)
+                    source=checkout,
+                    target=payment,
+                    kind="depends_on",
+                    chunk_ids=("doc2:c9",),
                 ),
             ),
         ),
@@ -153,13 +169,19 @@ async def test_upsert_creates_supersedes_edge_for_second_version(
 
     await store.upsert(
         source=_source(
-            org_id=org_id, document_id=document_id, document_version_id=unique_id + 2, version_no=1
+            org_id=org_id,
+            document_id=document_id,
+            document_version_id=unique_id + 2,
+            version_no=1,
         ),
         graph=DocumentGraph(entities=(), relations=()),
     )
     await store.upsert(
         source=_source(
-            org_id=org_id, document_id=document_id, document_version_id=unique_id + 3, version_no=2
+            org_id=org_id,
+            document_id=document_id,
+            document_version_id=unique_id + 3,
+            version_no=2,
         ),
         graph=DocumentGraph(entities=(), relations=()),
     )
@@ -190,7 +212,9 @@ async def test_related_evidence_traverses_two_hops_with_correct_chunk_ids(
 
     # Checkout -> Payment -> DatabasePool, a genuine 2-hop chain.
     await store.upsert(
-        source=_source(org_id=org_id, document_id=unique_id + 1, document_version_id=unique_id + 2),
+        source=_source(
+            org_id=org_id, document_id=unique_id + 1, document_version_id=unique_id + 2
+        ),
         graph=DocumentGraph(
             entities=(
                 GraphEntity(name=checkout, kind="service", chunk_ids=("c-checkout",)),
@@ -198,13 +222,18 @@ async def test_related_evidence_traverses_two_hops_with_correct_chunk_ids(
             ),
             relations=(
                 GraphRelation(
-                    source=checkout, target=payment, kind="depends_on", chunk_ids=("c-checkout-payment",)
+                    source=checkout,
+                    target=payment,
+                    kind="depends_on",
+                    chunk_ids=("c-checkout-payment",),
                 ),
             ),
         ),
     )
     await store.upsert(
-        source=_source(org_id=org_id, document_id=unique_id + 3, document_version_id=unique_id + 4),
+        source=_source(
+            org_id=org_id, document_id=unique_id + 3, document_version_id=unique_id + 4
+        ),
         graph=DocumentGraph(
             entities=(
                 GraphEntity(name=payment, kind="service", chunk_ids=("c-payment-2",)),
@@ -212,7 +241,10 @@ async def test_related_evidence_traverses_two_hops_with_correct_chunk_ids(
             ),
             relations=(
                 GraphRelation(
-                    source=payment, target=db_pool, kind="depends_on", chunk_ids=("c-payment-dbpool",)
+                    source=payment,
+                    target=db_pool,
+                    kind="depends_on",
+                    chunk_ids=("c-payment-dbpool",),
                 ),
             ),
         ),
@@ -245,16 +277,28 @@ async def test_related_evidence_does_not_leak_across_organizations(
     searcher = Neo4jGraphSearcher(graphdb)
 
     await store.upsert(
-        source=_source(org_id=org_a, document_id=unique_id + 10, document_version_id=unique_id + 11),
+        source=_source(
+            org_id=org_a, document_id=unique_id + 10, document_version_id=unique_id + 11
+        ),
         graph=DocumentGraph(
-            entities=(GraphEntity(name=shared_name, kind="service", chunk_ids=("org-a-chunk",)),),
+            entities=(
+                GraphEntity(
+                    name=shared_name, kind="service", chunk_ids=("org-a-chunk",)
+                ),
+            ),
             relations=(),
         ),
     )
     await store.upsert(
-        source=_source(org_id=org_b, document_id=unique_id + 20, document_version_id=unique_id + 21),
+        source=_source(
+            org_id=org_b, document_id=unique_id + 20, document_version_id=unique_id + 21
+        ),
         graph=DocumentGraph(
-            entities=(GraphEntity(name=shared_name, kind="service", chunk_ids=("org-b-chunk",)),),
+            entities=(
+                GraphEntity(
+                    name=shared_name, kind="service", chunk_ids=("org-b-chunk",)
+                ),
+            ),
             relations=(),
         ),
     )
@@ -286,7 +330,11 @@ async def test_related_evidence_excludes_versions_past_their_valid_to(
             valid_to=datetime.now(timezone.utc) - timedelta(days=1),
         ),
         graph=DocumentGraph(
-            entities=(GraphEntity(name=entity_name, kind="service", chunk_ids=("expired-chunk",)),),
+            entities=(
+                GraphEntity(
+                    name=entity_name, kind="service", chunk_ids=("expired-chunk",)
+                ),
+            ),
             relations=(),
         ),
     )

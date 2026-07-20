@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from src.modules.document.domain.models import (
     DocumentProcessingStatus,
@@ -16,7 +15,6 @@ from src.modules.document.domain.models import (
     StoredObjectRecord,
     StoredObjectStatus,
 )
-from src.modules.document.infra.persistence.orm import DocumentVersionRow
 from src.modules.document.infra.unit_of_work import SqlAlchemyDocumentUnitOfWork
 from src.shared.infra.database import Database
 
@@ -248,36 +246,25 @@ async def test_outbox_find_pending_excludes_published_events(
 
 @pytest.mark.asyncio
 async def test_document_version_foreign_key_is_enforced_by_real_postgres(
-    database: Database,
+    uow: SqlAlchemyDocumentUnitOfWork,
     unique_id: int,
 ) -> None:
     """A mocked session would happily accept this insert; a real database
     with the schema from our own migrations must reject it. This is
-    precisely the class of bug unit tests with fakes cannot catch."""
-    session_factory: async_sessionmaker = database.session_factory
-
-    async with session_factory() as session, session.begin():
-        session.add(
-            DocumentVersionRow(
-                id=unique_id,
-                org_id=unique_id,
-                document_id=unique_id + 999_999,  # does not exist
-                storage_object_id=unique_id + 999_998,  # does not exist
-                version_no=1,
-                filename="orphan.pdf",
-                mime_type="application/pdf",
-                doc_type=None,
-                doc_type_confidence=None,
-                processing_status=DocumentProcessingStatus.UPLOADED.value,
-                uploaded_by=1,
-                page_count=None,
-                created_at=datetime.now(timezone.utc),
-                valid_from=None,
-                superseded_at=None,
+    precisely the class of bug unit tests with fakes cannot catch. Goes
+    through the same repository/UnitOfWork path as every other test here,
+    not a raw session, so it exercises the same code as production."""
+    with pytest.raises(IntegrityError):
+        async with uow.begin() as tx:
+            await tx.document_versions.create(
+                _document_version(
+                    id=unique_id,
+                    org_id=unique_id,
+                    document_id=unique_id + 999_999,  # does not exist
+                    storage_object_id=unique_id + 999_998,  # does not exist
+                    version_no=1,
+                )
             )
-        )
-        with pytest.raises(IntegrityError):
-            await session.flush()
 
 
 def _stored_object(*, id: int, org_id: int) -> StoredObjectRecord:

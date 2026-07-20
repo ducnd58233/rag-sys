@@ -94,6 +94,13 @@ async def database(
     database_settings: DatabaseSettings,
     _migrated_database_url: str,
 ) -> AsyncIterator[Database]:
+    # Function-scoped, not session-scoped: pytest-asyncio gives each test
+    # its own event loop by default, and an AsyncEngine's connections are
+    # bound to the loop that created them. A session-scoped engine here
+    # would work in test 1 and then raise "Event loop is closed" in test
+    # 2 (this was tried and reverted). Reusing one engine across tests
+    # would need a session-scoped event loop too, which is a bigger,
+    # riskier change than the connection-pool overhead it would save.
     db = Database(database_settings)
     try:
         yield db
@@ -112,11 +119,24 @@ async def elasticsearch(
         await es.close()
 
 
-@pytest_asyncio.fixture
-async def graphdb(graphdb_settings: GraphDbSettings) -> AsyncIterator[Neo4jGraphDb]:
+@pytest_asyncio.fixture(scope="session")
+async def _graphdb_initialized(graphdb_settings: GraphDbSettings) -> None:
+    # Index creation only needs to happen once against the session-scoped
+    # container, not once per test.
     db = Neo4jGraphDb(graphdb_settings)
     try:
         await db.initialize()
+    finally:
+        await db.close()
+
+
+@pytest_asyncio.fixture
+async def graphdb(
+    graphdb_settings: GraphDbSettings,
+    _graphdb_initialized: None,
+) -> AsyncIterator[Neo4jGraphDb]:
+    db = Neo4jGraphDb(graphdb_settings)
+    try:
         yield db
     finally:
         await db.close()
@@ -128,8 +148,17 @@ def _id_block_counter() -> Iterator[int]:
     # every test needs its own org_id/document_id/etc. space. Each test
     # gets a 1,000-id block (unique_id, unique_id + 1, ... up to + 999) so
     # a test using several related ids internally can never collide with
-    # another test's block, even though tests run sequentially and not
-    # concurrently in this suite.
+    # another test's block. This only holds under sequential execution:
+    # each pytest-xdist worker would get its own counter starting back at
+    # 100, silently reintroducing collisions across workers, so refuse to
+    # run under more than one xdist worker rather than fail confusingly.
+    worker_count = os.environ.get("PYTEST_XDIST_WORKER_COUNT")
+    if worker_count is not None and int(worker_count) > 1:
+        raise RuntimeError(
+            "tests/integration cannot run under pytest-xdist with more "
+            "than one worker: unique_id allocation is per-process and "
+            "would collide across workers. Run with -n0 or without -n."
+        )
     return itertools.count(start=100)
 
 
