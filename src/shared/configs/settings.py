@@ -155,10 +155,8 @@ class RoutingSettings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
-    enabled: bool = Field(default=True)
     default_strategy: str = Field(default="hybrid")
     max_concurrent_strategies: int = Field(default=3, ge=1, le=6)
-    llm_router_enabled: bool = Field(default=True)
     llm_router_timeout_seconds: float = Field(default=2.0, gt=0)
     identifier_patterns: list[str] = Field(default_factory=lambda: [r"[a-z]+-\d{3,}"])
     structured_fields: list[str] = Field(
@@ -170,9 +168,7 @@ class RoutingSettings(BaseSettings):
             "metadata.source",
         ]
     )
-    temporal_enabled: bool = Field(default=True)
     temporal_recency_half_life_days: float = Field(default=90.0, gt=0)
-    graph_enabled: bool = Field(default=True)
     graph_max_hops: int = Field(default=2, ge=1, le=4)
 
 

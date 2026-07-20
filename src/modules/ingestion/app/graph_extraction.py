@@ -4,11 +4,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, Field
 
-from src.modules.ingestion.domain.graph import (
-    DocumentGraph,
-    GraphEntity,
-    GraphRelation,
-)
+from src.modules.ingestion.domain.graph import DocumentGraph, GraphEntity, GraphRelation
 from src.modules.ingestion.domain.models import Chunk, DocumentVersionSource
 from src.shared.app.ports import IChatModel
 

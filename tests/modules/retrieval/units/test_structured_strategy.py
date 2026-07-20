@@ -7,7 +7,11 @@ from src.modules.retrieval.app.router import CompositeQueryRouter, RuleRouter
 from src.modules.retrieval.app.strategy_registry import RetrievalStrategyRegistry
 from src.modules.retrieval.app.use_cases.retrieve import RetrieveUseCase
 from src.modules.retrieval.domain.models import HitChunk
-from src.modules.retrieval.domain.plan import RetrievalPlan, RouterKind
+from src.modules.retrieval.domain.plan import (
+    RetrievalPlan,
+    RouterKind,
+    StrategySelection,
+)
 from src.modules.retrieval.infra.fusion.reciprocal_rank import ReciprocalRankFusion
 from src.modules.retrieval.infra.strategies import (
     LexicalStrategy,
@@ -68,6 +72,20 @@ class FakeDenseSearcher:
         filters: RetrievalFilter,
     ) -> Sequence[HitChunk]:
         return (_hit("semantic", score=1.0),)
+
+
+class FakeLlmRouter:
+    def __init__(self, plan: RetrievalPlan) -> None:
+        self._plan = plan
+
+    async def route(
+        self,
+        query: str,
+        *,
+        filters: RetrievalFilter,
+        top_k: int,
+    ) -> RetrievalPlan:
+        return self._plan
 
 
 @pytest.mark.asyncio
@@ -164,7 +182,20 @@ async def test_identifier_retrieval_path_skips_embedding() -> None:
     semantic = SemanticStrategy(embedder, FakeDenseSearcher(), retrieval_settings)
     use_case = RetrieveUseCase(
         retrieval_settings,
-        CompositeQueryRouter(routing_settings, RuleRouter(routing_settings)),
+        CompositeQueryRouter(
+            routing_settings,
+            RuleRouter(routing_settings),
+            FakeLlmRouter(
+                RetrievalPlan(
+                    strategies=(
+                        StrategySelection(name="semantic", weight=1.0, top_k=2),
+                    ),
+                    router_kind=RouterKind.LLM,
+                    reason="semantic",
+                    confidence=1.0,
+                )
+            ),
+        ),
         RetrievalStrategyRegistry((structured, lexical, semantic)),
         rank_fusion,
     )
@@ -191,8 +222,6 @@ def _selection(
     top_k: int,
     query: str,
 ):
-    from src.modules.retrieval.domain.plan import StrategySelection
-
     return StrategySelection(name=name, weight=1.0, top_k=top_k, query=query)
 
 

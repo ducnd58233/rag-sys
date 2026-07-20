@@ -6,7 +6,11 @@ from types import SimpleNamespace
 import pytest
 
 from src.modules.retrieval.app.dto import RetrievalFilter
-from src.modules.retrieval.domain.plan import RetrievalPlan, RouterKind, StrategySelection
+from src.modules.retrieval.domain.plan import (
+    RetrievalPlan,
+    RouterKind,
+    StrategySelection,
+)
 from src.modules.retrieval.infra.strategies.graph import GraphStrategy
 
 
@@ -64,7 +68,9 @@ class FakeGraphQueryAnalyzer:
 
 
 @pytest.mark.asyncio
-async def test_graph_strategy_resolves_related_documents_through_elasticsearch() -> None:
+async def test_graph_strategy_resolves_related_documents_through_elasticsearch() -> (
+    None
+):
     elasticsearch = FakeElasticsearch()
     graph_searcher = FakeGraphSearcher()
     query_analyzer = FakeGraphQueryAnalyzer()

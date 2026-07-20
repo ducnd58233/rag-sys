@@ -4,9 +4,7 @@ from collections.abc import Mapping, Sequence
 
 import pytest
 
-from src.modules.retrieval.infra.graphdb.neo4j_graph_searcher import (
-    Neo4jGraphSearcher,
-)
+from src.modules.retrieval.infra.graphdb.neo4j_graph_searcher import Neo4jGraphSearcher
 
 
 class FakeGraphDb:

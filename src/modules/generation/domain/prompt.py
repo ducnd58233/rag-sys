@@ -1,4 +1,4 @@
-﻿from collections.abc import Sequence
+from collections.abc import Sequence
 
 from src.modules.generation.domain.models import ContextChunk
 
@@ -176,7 +176,7 @@ class GroundedPromptBuilder:
         math_evidence: str = "",
     ) -> tuple[str, str]:
         math_block = (
-            "MATH EVIDENCE TO COPY EXACTLY IF RELEVANT:\n" f"{math_evidence}\n\n"
+            f"MATH EVIDENCE TO COPY EXACTLY IF RELEVANT:\n{math_evidence}\n\n"
             if math_evidence
             else ""
         )

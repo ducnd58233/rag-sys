@@ -41,8 +41,8 @@ class RetrievalComponentFactory:
         settings: Settings,
         elasticsearch: Elasticsearch,
         embedder: IEmbeddingModel,
-        chat_model: IChatModel | None = None,
-        graph_searcher: IGraphSearcher | None = None,
+        chat_model: IChatModel,
+        graph_searcher: IGraphSearcher,
     ) -> RetrievalComponents:
         retrieval = settings.retrieval
         rank_fusion = ReciprocalRankFusion(rank_constant=retrieval.rank_constant)
@@ -61,29 +61,21 @@ class RetrievalComponentFactory:
                 settings.elasticsearch,
                 settings.routing,
             ),
+            TemporalStrategy(
+                elasticsearch,
+                settings.elasticsearch,
+                settings.routing,
+            ),
         ]
-        if settings.routing.temporal_enabled:
-            strategies.append(
-                TemporalStrategy(
-                    elasticsearch,
-                    settings.elasticsearch,
-                    settings.routing,
-                )
+        strategies.append(
+            GraphStrategy(
+                elasticsearch,
+                settings.elasticsearch,
+                settings.routing,
+                graph_searcher,
+                LlmGraphQueryAnalyzer(chat_model),
             )
-        if (
-            settings.routing.graph_enabled
-            and graph_searcher is not None
-            and chat_model is not None
-        ):
-            strategies.append(
-                GraphStrategy(
-                    elasticsearch,
-                    settings.elasticsearch,
-                    settings.routing,
-                    graph_searcher,
-                    LlmGraphQueryAnalyzer(chat_model),
-                )
-            )
+        )
         strategies.extend(
             (
                 HybridStrategy(lexical_strategy, semantic_strategy, rank_fusion),
@@ -97,14 +89,10 @@ class RetrievalComponentFactory:
         query_router = CompositeQueryRouter(
             settings.routing,
             RuleRouter(settings.routing),
-            (
-                LlmRouter(
-                    settings.routing,
-                    chat_model,
-                    allowed_strategies=strategy_registry.names,
-                )
-                if chat_model is not None
-                else None
+            LlmRouter(
+                settings.routing,
+                chat_model,
+                allowed_strategies=strategy_registry.names,
             ),
         )
         return RetrievalComponents(

@@ -220,9 +220,8 @@ async def test_llm_router_timeout_falls_back_to_hybrid() -> None:
 
 
 @pytest.mark.asyncio
-async def test_composite_router_uses_llm_router_when_enabled() -> None:
+async def test_composite_router_uses_llm_router_when_available() -> None:
     settings = RoutingSettings(
-        llm_router_enabled=True,
         identifier_patterns=[r"deploy-\d+"],
     )
     llm_router = LlmRouter(

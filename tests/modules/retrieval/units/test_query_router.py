@@ -2,7 +2,11 @@ import pytest
 
 from src.modules.retrieval.app.dto import RetrievalFilter
 from src.modules.retrieval.app.router import CompositeQueryRouter, RuleRouter
-from src.modules.retrieval.domain.plan import RouterKind
+from src.modules.retrieval.domain.plan import (
+    RetrievalPlan,
+    RouterKind,
+    StrategySelection,
+)
 from src.shared.configs.settings import RoutingSettings
 
 
@@ -88,34 +92,53 @@ async def test_rule_router_falls_through_without_rule_match() -> None:
 
 
 @pytest.mark.asyncio
-async def test_composite_router_caps_rule_strategies_and_uses_default_fallback() -> (
+async def test_composite_router_caps_rule_strategies_and_routes_unmatched_to_llm() -> (
     None
 ):
     settings = _routing_settings(
         max_concurrent_strategies=1, default_strategy="lexical"
     )
-    router = CompositeQueryRouter(settings, RuleRouter(settings))
+    llm_router = FakeLlmRouter(
+        RetrievalPlan.single(
+            strategy="semantic",
+            top_k=5,
+            router_kind=RouterKind.LLM,
+            reason="semantic",
+        )
+    )
+    router = CompositeQueryRouter(settings, RuleRouter(settings), llm_router)
 
     rule_plan = await router.route(
         "deploy-1832",
         filters=RetrievalFilter(org_id=1),
         top_k=5,
     )
-    fallback_plan = await router.route(
+    llm_plan = await router.route(
         "plain semantic query",
         filters=RetrievalFilter(org_id=1),
         top_k=5,
     )
 
     assert [strategy.name for strategy in rule_plan.strategies] == ["structured"]
-    assert [strategy.name for strategy in fallback_plan.strategies] == ["lexical"]
-    assert fallback_plan.router_kind == RouterKind.FALLBACK
-    assert fallback_plan.reason == "llm_router_disabled"
+    assert [strategy.name for strategy in llm_plan.strategies] == ["semantic"]
+    assert llm_plan.router_kind == RouterKind.LLM
+    assert llm_router.calls == [("plain semantic query", RetrievalFilter(org_id=1), 5)]
 
 
 @pytest.mark.asyncio
 async def test_composite_router_falls_back_when_rule_router_errors() -> None:
-    router = CompositeQueryRouter(_routing_settings(), BrokenRuleRouter())
+    router = CompositeQueryRouter(
+        _routing_settings(),
+        BrokenRuleRouter(),
+        FakeLlmRouter(
+            RetrievalPlan(
+                strategies=(StrategySelection(name="semantic", weight=1.0, top_k=5),),
+                router_kind=RouterKind.LLM,
+                reason="semantic",
+                confidence=1.0,
+            )
+        ),
+    )
 
     plan = await router.route(
         "deploy-1832",
@@ -136,6 +159,22 @@ class BrokenRuleRouter:
         top_k: int,
     ):
         raise RuntimeError("boom")
+
+
+class FakeLlmRouter:
+    def __init__(self, plan: RetrievalPlan) -> None:
+        self.calls: list[tuple[str, RetrievalFilter, int]] = []
+        self._plan = plan
+
+    async def route(
+        self,
+        query: str,
+        *,
+        filters: RetrievalFilter,
+        top_k: int,
+    ) -> RetrievalPlan:
+        self.calls.append((query, filters, top_k))
+        return self._plan
 
 
 def _routing_settings(**overrides: object) -> RoutingSettings:
