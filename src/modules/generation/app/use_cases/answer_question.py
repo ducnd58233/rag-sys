@@ -36,6 +36,7 @@ from src.shared.observability.metrics import (
 
 logger = logging.getLogger(__name__)
 _tracer = trace.get_tracer(__name__)
+_FORMULA_MARKERS = ("=", "\\frac", "\\sum", "\\prod", "^", "_")
 
 
 @dataclass(frozen=True, slots=True)
@@ -527,7 +528,7 @@ class AnswerQuestionUseCase:
                 temperature=None,
                 max_tokens=None,
             )
-        answer = _strip_numbered_prefix(result.content.strip())
+        answer = result.content.strip()
         if answer == REFUSAL_ANSWER:
             return _IntentAnswer(intent_index=intent_index)
         if not answer:
@@ -617,7 +618,7 @@ class AnswerQuestionUseCase:
         if (
             not verified.has_math_evidence
             or not checked
-            or not _looks_like_math_evidence(checked)
+            or not any(marker in checked for marker in _FORMULA_MARKERS)
         ):
             return ""
         return checked
@@ -685,19 +686,6 @@ def _context_intent_indices(context: ContextChunk) -> tuple[int, ...]:
     if isinstance(value, (list, tuple, set, frozenset)):
         return tuple(item for item in value if isinstance(item, int))
     return ()
-
-
-def _strip_numbered_prefix(answer: str) -> str:
-    for prefix in ("1. ", "2. ", "3. ", "4. ", "5. "):
-        if answer.startswith(prefix):
-            return answer[len(prefix) :].strip()
-    return answer
-
-
-def _looks_like_math_evidence(value: str) -> bool:
-    return any(
-        marker in value for marker in ("=", "\\frac", "\\sum", "\\prod", "^", "_")
-    )
 
 
 def _missing_supported_intents(
