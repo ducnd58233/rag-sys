@@ -9,9 +9,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
+from scripts.evaluation.bioasq_source import dataset_provenance, load_bioasq_cases
 from scripts.evaluation.client import EvalHttpClient, RetrievalResponse
 from scripts.evaluation.config import DEFAULT_EVAL_ORG_ID
-from scripts.evaluation.dataset import EvalCase, load_dataset
+from scripts.evaluation.dataset import EvalCase
 from scripts.evaluation.metrics.retrieval import (
     hit_rate_at_k,
     ndcg_at_k,
@@ -22,7 +23,9 @@ from scripts.evaluation.metrics.retrieval import (
 from scripts.evaluation.report import render_summary
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_DATASET = _REPO_ROOT / "datasets" / "golden" / "bioasq-v1.jsonl"
+_DEFAULT_DATASET = (
+    _REPO_ROOT / "datasets" / "bioasq" / "raw" / "question-answer-passages.parquet"
+)
 _RUNS_DIR = _REPO_ROOT / "runs" / "evaluation"
 _LIMIT_SAMPLE_SEED = 20260720
 
@@ -138,7 +141,7 @@ async def run_evaluation(
     concurrency: int,
     limit: int | None = None,
 ) -> Path:
-    cases = list(load_dataset(dataset_path, split=split))  # type: ignore[arg-type]
+    cases = list(load_bioasq_cases(dataset_path, split=split))  # type: ignore[arg-type]
     if not cases:
         raise ValueError(f"no cases found for split={split!r} in {dataset_path}")
     if limit is not None and limit < len(cases):
@@ -147,10 +150,7 @@ async def run_evaluation(
         # separate dataset - the headline numbers still come from an unlimited run.
         cases = random.Random(_LIMIT_SAMPLE_SEED).sample(cases, limit)
 
-    meta_path = dataset_path.parent / f"{dataset_path.stem}.meta.json"
-    meta = (
-        json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
-    )
+    provenance = dataset_provenance(dataset_path)
 
     run_dir = _RUNS_DIR / f"{datetime.now().strftime('%m-%d-%Y')}-{_run_slug()}"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -173,9 +173,9 @@ async def run_evaluation(
 
     config = {
         "dataset_path": str(dataset_path.relative_to(_REPO_ROOT)),
-        "dataset_version": meta.get("version", dataset_path.stem),
-        "dataset_content_hash": meta.get("content_hash", "unknown"),
-        "corpus_id": meta.get("corpus_id", "unknown"),
+        "dataset_version": provenance["version"],
+        "dataset_content_hash": provenance["content_hash"],
+        "corpus_id": provenance["corpus_id"],
         "split": split or "all",
         "case_count": len(cases),
         "limit": limit,

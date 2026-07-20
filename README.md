@@ -42,7 +42,6 @@ the corpus and dataset, and [`scripts/evaluation/`](scripts/evaluation) for the 
 
 ```bash
 uv run poe eval-download-corpus  # fetch the BioASQ parquet files
-uv run poe eval-build-golden     # convert the QA split into the golden dataset
 uv run poe eval-index-corpus     # index the passage corpus into a running local stack
 uv run poe eval-dev              # score retrieval against the dev split
 ```

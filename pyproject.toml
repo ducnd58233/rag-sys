@@ -79,7 +79,6 @@ migrate-down-all = 'alembic downgrade base'
 test = "pytest"
 test-integration = "pytest tests/integration -m integration"
 eval-download-corpus = "python scripts/evaluation/download_bioasq.py"
-eval-build-golden = "python scripts/evaluation/build_bioasq_golden.py"
 eval-index-corpus = "python scripts/evaluation/index_corpus.py"
 eval-dev = "python scripts/evaluation/run.py --split dev"
 

@@ -1,6 +1,6 @@
 # Evaluation datasets
 
-Corpus and golden question set for `scripts/evaluation/`. All of it comes from one source:
+Corpus and question set for `scripts/evaluation/`. All of it comes from one source:
 [`rag-datasets/rag-mini-bioasq`](https://huggingface.co/datasets/rag-datasets/rag-mini-bioasq) on
 Hugging Face (license `cc-by-2.5`), itself derived from the official BioASQ Task 11b training set.
 Nothing here is self-generated: the questions, reference answers, and relevance judgments are all
@@ -10,15 +10,16 @@ taken verbatim from that dataset.
 
 | Path | Committed? | Contents |
 |------|------------|----------|
-| `bioasq/raw/` | no (gitignored) | The two parquet files fetched by `uv run poe eval-download-corpus` |
-| `golden/bioasq-v1.jsonl` | no (gitignored, ~6MB) | The golden question set, built from the QA split by `uv run poe eval-build-golden` |
-| `golden/bioasq-v1.meta.json` | yes | Content hash, provenance, and known-gap notes for the last `bioasq-v1.jsonl` build |
+| `bioasq/raw/question-answer-passages.parquet` | no (gitignored) | 4,719 BioASQ QA pairs, fetched by `uv run poe eval-download-corpus` |
+| `bioasq/raw/text-corpus.parquet` | no (gitignored) | 40,221 candidate passages, fetched by the same command |
 
-`bioasq-v1.jsonl` is not committed: at 4,719 cases it's ~6MB, over this repo's 500KB large-file
-hook, and - like the corpus parquet - it's 100% mechanically derived from an external source with
-nothing hand-curated to lose. `eval-download-corpus && eval-build-golden` reproduces it byte-for-byte
-(same deterministic sentence-splitting and split-hashing every run); `bioasq-v1.meta.json` documents
-the exact shape (content hash, counts) that build should produce.
+There is no committed or separately-built "golden dataset" file. `scripts/evaluation/run.py` reads
+`question-answer-passages.parquet` directly and maps each row into this harness's `EvalCase` schema
+in memory (`scripts/evaluation/bioasq_source.py`) - an earlier version of this harness materialized
+that mapping to a `datasets/golden/bioasq-v1.jsonl` file with its own build step, but the mapping is
+a pure, deterministic function of the parquet, so writing it to disk added a step (and a 6MB file
+over this repo's large-file hook) without adding independent value. The parquet itself is the source
+of truth; `dataset_provenance()` hashes it directly for `config.yaml`'s `dataset_content_hash`.
 
 ## Corpus
 
@@ -83,10 +84,10 @@ switching to `python-magic-bin` (bundles the `libmagic` DLLs for Windows) or run
 inside the project's Docker stack instead of the native Windows interpreter; neither has been
 applied yet. Until it is, `eval-index-corpus` cannot be verified end to end on this machine.
 
-## Golden dataset
+## Question set
 
-`golden/bioasq-v1.jsonl` holds all 4,719 rows of the `question-answer-passages` split, converted
-1:1 by `scripts/evaluation/build_bioasq_golden.py` into this harness's `EvalCase` schema
+`scripts/evaluation/bioasq_source.load_bioasq_cases()` reads all 4,719 rows of the
+`question-answer-passages` split and maps each one into `EvalCase`
 (`scripts/evaluation/dataset.py`):
 
 | BioASQ field | EvalCase field | Notes |
@@ -100,10 +101,11 @@ applied yet. Until it is, `eval-index-corpus` cannot be verified end to end on t
 | (derived) | `split` | deterministic hash of the case ID, ~80% dev / ~20% test |
 
 No question, answer, or relevance judgment was written or edited by this repo - every row of the
-source split is represented exactly once. This is a real difference from the corpus this harness
-used before (a hand-authored, self-fact-checked set of questions over downloaded arXiv papers):
-that approach required an independent fact-check pass to be trustworthy at all, whereas this one is
-already a published, citable benchmark.
+source split is represented exactly once, every run, since the mapping is a pure function with no
+randomness. This is a real difference from the corpus this harness used before (a hand-authored,
+self-fact-checked set of questions over downloaded arXiv papers): that approach required an
+independent fact-check pass to be trustworthy at all, whereas this one is already a published,
+citable benchmark.
 
 **Two honest, disclosed gaps, not glossed over:**
 
@@ -121,9 +123,16 @@ label: a question with many relevant passages may just have many equally-good su
 for one factoid, not genuine multi-hop reasoning across distinct documents. Treat `multi-hop` here
 as "needs more than one supporting passage", not as a claim about the retrieval strategy required.
 
-Distribution (from `golden/bioasq-v1.meta.json`, generated at build time - regenerate with
-`uv run poe eval-build-golden` if it ever drifts):
+Inspect the distribution locally:
 
 ```bash
-uv run python -c "import json; print(json.dumps(json.load(open('datasets/golden/bioasq-v1.meta.json'))['difficulty_distribution'], indent=2))"
+uv run python -c "
+from collections import Counter
+from pathlib import Path
+from scripts.evaluation.bioasq_source import load_bioasq_cases
+
+cases = load_bioasq_cases(Path('datasets/bioasq/raw/question-answer-passages.parquet'))
+print(Counter(c.difficulty for c in cases))
+print(Counter(c.split for c in cases))
+"
 ```

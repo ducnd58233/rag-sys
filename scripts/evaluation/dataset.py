@@ -95,7 +95,7 @@ def _validate(raw: dict[str, object]) -> None:
             )
 
 
-def _to_case(raw: dict[str, object]) -> EvalCase:
+def case_from_dict(raw: dict[str, object]) -> EvalCase:
     _validate(raw)
     return EvalCase(
         id=str(raw["id"]),
@@ -129,7 +129,7 @@ def load_dataset(path: Path, *, split: Split | None = None) -> tuple[EvalCase, .
                     f"<line {line_no}>",
                     f"invalid JSON: {error}",
                 ) from error
-            cases.append(_to_case(raw))
+            cases.append(case_from_dict(raw))
 
     if split is not None:
         cases = [case for case in cases if case.split == split]
