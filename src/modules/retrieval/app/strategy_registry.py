@@ -11,4 +11,6 @@ class RetrievalStrategyRegistry:
         self._strategies = tuple(strategies)
 
     def select(self, plan: RetrievalPlan) -> tuple[IRetrievalStrategy, ...]:
-        return tuple(strategy for strategy in self._strategies if strategy.supports(plan))
+        return tuple(
+            strategy for strategy in self._strategies if strategy.supports(plan)
+        )

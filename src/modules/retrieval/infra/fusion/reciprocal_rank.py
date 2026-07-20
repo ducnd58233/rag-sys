@@ -14,9 +14,12 @@ class ReciprocalRankFusion:
         ranked_lists: Sequence[Sequence[HitChunk]],
         *,
         top_k: int,
+        weights: Sequence[float] | None = None,
     ) -> tuple[HitChunk, ...]:
         if not ranked_lists:
             raise ValueError("ranked_lists cannot be empty")
+
+        resolved_weights = _resolve_weights(ranked_lists, weights)
 
         if self._rank_constant < 1:
             raise ValueError("rank_constant must be greater than 0")
@@ -27,10 +30,10 @@ class ReciprocalRankFusion:
         fused: dict[str, float] = {}
         by_id: dict[str, HitChunk] = {}
 
-        for ranked in ranked_lists:
+        for ranked, weight in zip(ranked_lists, resolved_weights, strict=True):
             for rank, chunk in enumerate(ranked, start=1):
                 fused[chunk.chunk_id] = fused.get(chunk.chunk_id, 0.0) + (
-                    1.0 / (self._rank_constant + rank)
+                    weight / (self._rank_constant + rank)
                 )
                 by_id[chunk.chunk_id] = chunk
 
@@ -48,3 +51,16 @@ class ReciprocalRankFusion:
                 )
             )
         return tuple(results)
+
+
+def _resolve_weights(
+    ranked_lists: Sequence[Sequence[HitChunk]],
+    weights: Sequence[float] | None,
+) -> tuple[float, ...]:
+    if weights is None:
+        return tuple(1.0 for _ in ranked_lists)
+    if len(weights) != len(ranked_lists):
+        raise ValueError("weights must match ranked_lists length")
+    if any(weight < 0 for weight in weights):
+        raise ValueError("weights cannot contain negative values")
+    return tuple(weights)

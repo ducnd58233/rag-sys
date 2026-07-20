@@ -8,7 +8,11 @@ from src.modules.retrieval.app.dto import RetrievalFilter, RetrieveRequest
 from src.modules.retrieval.app.strategy_registry import RetrievalStrategyRegistry
 from src.modules.retrieval.app.use_cases.retrieve import RetrieveUseCase
 from src.modules.retrieval.domain.models import HitChunk
-from src.modules.retrieval.domain.plan import RetrievalPlan, RouterKind, StrategySelection
+from src.modules.retrieval.domain.plan import (
+    RetrievalPlan,
+    RouterKind,
+    StrategySelection,
+)
 from src.modules.retrieval.infra.fusion.reciprocal_rank import ReciprocalRankFusion
 from src.modules.retrieval.infra.strategies import (
     HybridStrategy,
@@ -110,9 +114,10 @@ async def test_retrieve_use_case_dispatches_through_hybrid_strategy() -> None:
     )
 
     assert result.query == "query"
-    assert result.plan.to_dict() == RetrievalPlan.hybrid(
-        top_k=2, reason="hybrid_default"
-    ).to_dict()
+    assert (
+        result.plan.to_dict()
+        == RetrievalPlan.hybrid(top_k=2, reason="hybrid_default").to_dict()
+    )
     assert [item.chunk_id for item in result.items] == ["a", "b"]
     assert embedder.calls == [["query"]]
 

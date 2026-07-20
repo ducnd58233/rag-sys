@@ -33,6 +33,7 @@ class IRankFusion(Protocol):
         ranked_lists: Sequence[Sequence[HitChunk]],
         *,
         top_k: int,
+        weights: Sequence[float] | None = None,
     ) -> tuple[HitChunk, ...]: ...
 
 
