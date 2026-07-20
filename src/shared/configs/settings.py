@@ -148,6 +148,46 @@ class RetrievalSettings(BaseSettings):
     min_fused_score: float | None = Field(default=None, ge=0.0)
 
 
+class RoutingSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="ROUTING_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    default_strategy: str = Field(default="hybrid")
+    max_concurrent_strategies: int = Field(default=3, ge=1, le=6)
+    llm_router_timeout_seconds: float = Field(default=2.0, gt=0)
+    identifier_patterns: list[str] = Field(default_factory=lambda: [r"[a-z]+-\d{3,}"])
+    structured_fields: list[str] = Field(
+        default_factory=lambda: [
+            "chunk_id",
+            "document_id",
+            "document_version_id",
+            "metadata.filename",
+            "metadata.source",
+        ]
+    )
+    temporal_recency_half_life_days: float = Field(default=90.0, gt=0)
+    graph_max_hops: int = Field(default=2, ge=1, le=4)
+
+
+class GraphDbSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="GRAPHDB_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    uri: str = Field(default="bolt://localhost:7687")
+    username: str = Field(default="neo4j")
+    password: SecretStr = Field(default=SecretStr("rag-sys-dev"))
+    database: str = Field(default="neo4j")
+    extraction_max_characters: int = Field(default=12_000, ge=1)
+    extraction_max_tokens: int = Field(default=1024, ge=1)
+    canonicalization_max_tokens: int = Field(default=512, ge=1)
+
+
 class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="DATABASE_",
@@ -247,6 +287,7 @@ class Settings(BaseSettings):
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     ingestion: IngestionSettings = Field(default_factory=IngestionSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
+    routing: RoutingSettings = Field(default_factory=RoutingSettings)
     chat: ChatSettings = Field(default_factory=ChatSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     object_storage: ObjectStorageSettings = Field(default_factory=ObjectStorageSettings)
@@ -254,6 +295,7 @@ class Settings(BaseSettings):
     document: DocumentSettings = Field(default_factory=DocumentSettings)
     kafka: KafkaSettings = Field(default_factory=KafkaSettings)
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
+    graphdb: GraphDbSettings = Field(default_factory=GraphDbSettings)
 
     @model_validator(mode="after")
     def _validate_kafka_max_poll_interval(self) -> "Settings":

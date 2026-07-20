@@ -16,6 +16,8 @@ from src.modules.document.domain.models import (
 )
 from src.modules.ingestion.app.dto import IngestDocumentRequest, IngestDocumentResult
 from src.modules.ingestion.app.ports import (
+    IDocumentGraphExtractor,
+    IDocumentGraphStore,
     IDocumentProcessor,
     ISourceResolver,
     IVectorStore,
@@ -48,12 +50,16 @@ class IngestDocumentUseCase:
         processor: IDocumentProcessor,
         embedder: IEmbeddingModel,
         vector_store: IVectorStore,
+        graph_extractor: IDocumentGraphExtractor,
+        graph_store: IDocumentGraphStore,
     ) -> None:
         self._doc_uow = doc_uow
         self._source_resolver = source_resolver
         self._processor = processor
         self._embedder = embedder
         self._vector_store = vector_store
+        self._graph_extractor = graph_extractor
+        self._graph_store = graph_store
 
     async def execute(
         self,
@@ -120,9 +126,15 @@ class IngestDocumentUseCase:
 
                 async with self._step("index"):
                     await self._vector_store.create_index_if_not_exists()
-                    await self._vector_store.delete_by_document_id(
+                    await self._vector_store.close_superseded_versions(
                         org_id=source.org_id,
                         document_id=source.document_id,
+                        active_document_version_id=source.document_version_id,
+                        valid_to=source.valid_from,
+                    )
+                    await self._vector_store.delete_by_document_version_id(
+                        org_id=source.org_id,
+                        document_version_id=source.document_version_id,
                     )
 
                     if chunks:
@@ -134,7 +146,19 @@ class IngestDocumentUseCase:
                             metadata=metadata,
                             chunks=chunks,
                             vectors=vectors,
+                            valid_from=source.valid_from,
+                            valid_to=source.valid_to,
                         )
+
+                async with self._step("graph"):
+                    graph = await self._graph_extractor.extract(
+                        source=source,
+                        chunks=chunks,
+                    )
+                    await self._graph_store.upsert(
+                        source=source,
+                        graph=graph,
+                    )
 
                 await self._mark_indexed(request)
             except Exception:
@@ -193,6 +217,11 @@ class IngestDocumentUseCase:
                     message="Document source is incomplete",
                 )
 
+            if version.valid_from is None:
+                raise IngestionConflictError(
+                    message="Document version is not active",
+                )
+
             if version.processing_status is DocumentProcessingStatus.INDEXED:
                 return self._build_source(
                     request,
@@ -240,6 +269,8 @@ class IngestDocumentUseCase:
             processing_status=processing_status,
             size_bytes=stored_object.size_bytes,
             checksum_sha256=stored_object.checksum_sha256,
+            valid_from=version.valid_from,
+            valid_to=version.superseded_at,
         )
 
     async def _mark_indexed(

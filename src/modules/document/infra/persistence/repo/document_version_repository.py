@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,8 +51,9 @@ class SqlAlchemyDocumentVersionRepository:
                 processing_status=record.processing_status.value,
                 uploaded_by=record.uploaded_by,
                 page_count=None,
-                created_at=datetime.now(timezone.utc),
-                superseded_at=None,
+                created_at=record.created_at,
+                valid_from=record.valid_from,
+                superseded_at=record.superseded_at,
             )
         )
 
@@ -91,6 +92,40 @@ class SqlAlchemyDocumentVersionRepository:
         )
         await self._session.execute(statement)
 
+    async def activate(
+        self,
+        *,
+        org_id: int,
+        document_version_id: int,
+        valid_from: datetime,
+    ) -> None:
+        statement = (
+            update(DocumentVersionRow)
+            .where(
+                DocumentVersionRow.id == document_version_id,
+                DocumentVersionRow.org_id == org_id,
+            )
+            .values(valid_from=valid_from)
+        )
+        await self._session.execute(statement)
+
+    async def supersede(
+        self,
+        *,
+        org_id: int,
+        document_version_id: int,
+        superseded_at: datetime,
+    ) -> None:
+        statement = (
+            update(DocumentVersionRow)
+            .where(
+                DocumentVersionRow.id == document_version_id,
+                DocumentVersionRow.org_id == org_id,
+            )
+            .values(superseded_at=superseded_at)
+        )
+        await self._session.execute(statement)
+
     def _to_record(
         self,
         row: DocumentVersionRow,
@@ -109,4 +144,7 @@ class SqlAlchemyDocumentVersionRepository:
             uploaded_by=row.uploaded_by,
             doc_type=row.doc_type,
             doc_type_confidence=row.doc_type_confidence,
+            created_at=row.created_at,
+            valid_from=row.valid_from,
+            superseded_at=row.superseded_at,
         )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from contextlib import AbstractAsyncContextManager
+from datetime import datetime
 from typing import Protocol
 
 from src.modules.document.domain.models import (
@@ -61,6 +62,22 @@ class IDocumentVersionRepository(Protocol):
         org_id: int,
         document_version_id: int,
         status: DocumentProcessingStatus,
+    ) -> None: ...
+
+    async def activate(
+        self,
+        *,
+        org_id: int,
+        document_version_id: int,
+        valid_from: datetime,
+    ) -> None: ...
+
+    async def supersede(
+        self,
+        *,
+        org_id: int,
+        document_version_id: int,
+        superseded_at: datetime,
     ) -> None: ...
 
 

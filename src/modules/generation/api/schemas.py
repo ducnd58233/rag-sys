@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -9,6 +11,7 @@ class AskRequestBody(BaseModel):
     top_k: int | None = Field(default=None, ge=1, le=100)
     document_id: int | None = Field(default=None, gt=0)
     document_version_id: int | None = Field(default=None, gt=0)
+    as_of: datetime | None = None
 
 
 class CitationResponse(BaseModel):

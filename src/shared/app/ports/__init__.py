@@ -1,5 +1,6 @@
 from src.shared.app.ports.chat import ChatResult, IChatModel, ToolCall
 from src.shared.app.ports.embedding import IEmbeddingModel
+from src.shared.app.ports.graphdb import IGraphDb
 from src.shared.app.ports.id_generator import IIdGenerator
 from src.shared.app.ports.message_queue import (
     ConsumerGroup,
@@ -23,6 +24,7 @@ __all__ = [
     "DlqTopic",
     "IChatModel",
     "IEmbeddingModel",
+    "IGraphDb",
     "IIdGenerator",
     "IMessageConsumer",
     "IMessagePublisher",

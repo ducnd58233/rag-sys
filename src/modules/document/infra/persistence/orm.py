@@ -44,6 +44,7 @@ class DocumentVersionRow(Base):
     uploaded_by: Mapped[int] = mapped_column(BigInteger)
     page_count: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     superseded_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
     )

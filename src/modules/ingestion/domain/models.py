@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 
@@ -46,6 +47,8 @@ class DocumentVersionSource:
     processing_status: DocumentProcessingStatus
     size_bytes: int
     checksum_sha256: str | None
+    valid_from: datetime
+    valid_to: datetime | None
 
     def __post_init__(self) -> None:
         positive_values = (
@@ -67,6 +70,8 @@ class DocumentVersionSource:
             )
         ):
             raise ValueError("document version identifiers must be positive")
+        if self.valid_to is not None and self.valid_to < self.valid_from:
+            raise ValueError("document version validity interval is invalid")
 
 
 @dataclass(frozen=True, slots=True)

@@ -3,9 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.modules.document.app.ports import IDocumentUnitOfWork
+from src.modules.ingestion.app.graph_extraction import LlmDocumentGraphExtractor
 from src.modules.ingestion.app.handlers.ingestion_requested import (
     IngestionRequestedHandler,
 )
+from src.modules.ingestion.app.ports import IDocumentGraphStore, IVectorStore
 from src.modules.ingestion.app.use_cases.ingest_document import IngestDocumentUseCase
 from src.modules.ingestion.app.use_cases.request_ingestion import (
     RequestIngestionUseCase,
@@ -17,7 +19,12 @@ from src.modules.ingestion.infra.processors.factory import DocumentProcessorFact
 from src.modules.ingestion.infra.sources.object_storage_resolver import (
     ObjectStorageSourceResolver,
 )
-from src.shared.app.ports import IEmbeddingModel, IIdGenerator, IObjectStorage
+from src.shared.app.ports import (
+    IChatModel,
+    IEmbeddingModel,
+    IIdGenerator,
+    IObjectStorage,
+)
 from src.shared.configs.settings import Settings
 from src.shared.infra.elasticsearch.client import Elasticsearch
 
@@ -31,6 +38,7 @@ __all__ = [
 
 @dataclass(frozen=True, slots=True)
 class IngestionComponents:
+    vector_store: IVectorStore
     ingest_document: IngestDocumentUseCase
     request_ingestion: RequestIngestionUseCase
     ingestion_handler: IngestionRequestedHandler
@@ -45,9 +53,16 @@ class IngestionComponentFactory:
         settings: Settings,
         elasticsearch: Elasticsearch,
         embedder: IEmbeddingModel,
+        chat_model: IChatModel,
         id_generator: IIdGenerator,
+        graph_store: IDocumentGraphStore,
     ) -> IngestionComponents:
         ingestion = settings.ingestion
+        vector_store = ElasticsearchVectorStore(
+            elasticsearch=elasticsearch,
+            elasticsearch_settings=settings.elasticsearch,
+            embedding_settings=settings.embedding,
+        )
 
         ingest_document = IngestDocumentUseCase(
             doc_uow=document_uow,
@@ -57,14 +72,20 @@ class IngestionComponentFactory:
             ),
             processor=DocumentProcessorFactory.create(ingestion),
             embedder=embedder,
-            vector_store=ElasticsearchVectorStore(
-                elasticsearch=elasticsearch,
-                elasticsearch_settings=settings.elasticsearch,
-                embedding_settings=settings.embedding,
+            vector_store=vector_store,
+            graph_extractor=LlmDocumentGraphExtractor(
+                chat_model,
+                extraction_max_characters=settings.graphdb.extraction_max_characters,
+                extraction_max_tokens=settings.graphdb.extraction_max_tokens,
+                canonicalization_max_tokens=(
+                    settings.graphdb.canonicalization_max_tokens
+                ),
             ),
+            graph_store=graph_store,
         )
 
         return IngestionComponents(
+            vector_store=vector_store,
             ingest_document=ingest_document,
             request_ingestion=RequestIngestionUseCase(
                 doc_uow=document_uow,

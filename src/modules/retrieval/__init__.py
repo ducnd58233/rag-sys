@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from src.modules.retrieval.app.graph_query import LlmGraphQueryAnalyzer
+from src.modules.retrieval.app.ports import IGraphSearcher
+from src.modules.retrieval.app.router import CompositeQueryRouter, LlmRouter, RuleRouter
+from src.modules.retrieval.app.strategy_registry import RetrievalStrategyRegistry
 from src.modules.retrieval.app.use_cases.retrieve import RetrieveUseCase
 from src.modules.retrieval.infra.elasticsearch.dense_searcher import (
     ElasticsearchDenseSearcher,
@@ -10,7 +14,15 @@ from src.modules.retrieval.infra.elasticsearch.lexical_searcher import (
     ElasticsearchLexicalSearcher,
 )
 from src.modules.retrieval.infra.fusion.reciprocal_rank import ReciprocalRankFusion
-from src.shared.app.ports import IEmbeddingModel
+from src.modules.retrieval.infra.strategies import (
+    GraphStrategy,
+    HybridStrategy,
+    LexicalStrategy,
+    SemanticStrategy,
+    StructuredStrategy,
+    TemporalStrategy,
+)
+from src.shared.app.ports import IChatModel, IEmbeddingModel
 from src.shared.configs.settings import Settings
 from src.shared.infra.elasticsearch.client import Elasticsearch
 
@@ -29,18 +41,65 @@ class RetrievalComponentFactory:
         settings: Settings,
         elasticsearch: Elasticsearch,
         embedder: IEmbeddingModel,
+        chat_model: IChatModel,
+        graph_searcher: IGraphSearcher,
     ) -> RetrievalComponents:
         retrieval = settings.retrieval
+        rank_fusion = ReciprocalRankFusion(rank_constant=retrieval.rank_constant)
+        lexical_strategy = LexicalStrategy(
+            ElasticsearchLexicalSearcher(elasticsearch, settings.elasticsearch),
+            retrieval,
+        )
+        semantic_strategy = SemanticStrategy(
+            embedder,
+            ElasticsearchDenseSearcher(elasticsearch, settings.elasticsearch),
+            retrieval,
+        )
+        strategies = [
+            StructuredStrategy(
+                elasticsearch,
+                settings.elasticsearch,
+                settings.routing,
+            ),
+            TemporalStrategy(
+                elasticsearch,
+                settings.elasticsearch,
+                settings.routing,
+            ),
+        ]
+        strategies.append(
+            GraphStrategy(
+                elasticsearch,
+                settings.elasticsearch,
+                settings.routing,
+                graph_searcher,
+                LlmGraphQueryAnalyzer(chat_model),
+            )
+        )
+        strategies.extend(
+            (
+                HybridStrategy(lexical_strategy, semantic_strategy, rank_fusion),
+                lexical_strategy,
+                semantic_strategy,
+            )
+        )
+        strategy_registry = RetrievalStrategyRegistry(
+            tuple(strategies),
+        )
+        query_router = CompositeQueryRouter(
+            settings.routing,
+            RuleRouter(settings.routing),
+            LlmRouter(
+                settings.routing,
+                chat_model,
+                allowed_strategies=strategy_registry.names,
+            ),
+        )
         return RetrievalComponents(
             retrieve=RetrieveUseCase(
-                embedder=embedder,
                 retrieval_settings=retrieval,
-                lexical_searcher=ElasticsearchLexicalSearcher(
-                    elasticsearch, settings.elasticsearch
-                ),
-                dense_searcher=ElasticsearchDenseSearcher(
-                    elasticsearch, settings.elasticsearch
-                ),
-                rank_fusion=ReciprocalRankFusion(rank_constant=retrieval.rank_constant),
+                query_router=query_router,
+                strategy_registry=strategy_registry,
+                rank_fusion=rank_fusion,
             ),
         )

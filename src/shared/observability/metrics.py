@@ -48,6 +48,18 @@ generation_ask_contexts = _meter.create_histogram(
     "rag.generation.ask.contexts",
     unit="{context}",
 )
+retrieval_router_decisions = _meter.create_counter(
+    "rag.router.decisions",
+    unit="{decision}",
+)
+retrieval_strategy_duration = _meter.create_histogram(
+    "rag.retrieval.strategy.duration",
+    unit="s",
+)
+retrieval_strategy_results = _meter.create_histogram(
+    "rag.retrieval.strategy.results",
+    unit="{result}",
+)
 messaging_publish_duration = _meter.create_histogram(
     "rag.messaging.publish.duration",
     unit="s",

@@ -71,6 +71,7 @@ class ContextMerger:
             candidates.values(),
             key=lambda item: (
                 item.coverage_count,
+                _is_graph_evidence(item.context),
                 item.context.score,
                 -item.first_seen,
             ),
@@ -96,6 +97,10 @@ class ContextMerger:
             deduplicated_count=len(candidates),
             supported_intent_indices=supported_intent_indices,
         )
+
+
+def _is_graph_evidence(context: ContextChunk) -> bool:
+    return str(context.metadata.get("graph_evidence", "")).lower() == "true"
 
 
 def _query_key(query: str) -> str:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -9,6 +11,7 @@ class RetrieveRequestBody(BaseModel):
     top_k: int | None = Field(default=None, ge=1, le=100)
     document_id: int | None = Field(default=None, gt=0)
     document_version_id: int | None = Field(default=None, gt=0)
+    as_of: datetime | None = None
 
 
 class RetrievedChunkResponse(BaseModel):
@@ -19,6 +22,22 @@ class RetrievedChunkResponse(BaseModel):
     metadata: dict[str, str]
 
 
+class StrategySelectionResponse(BaseModel):
+    name: str
+    weight: float
+    top_k: int
+    query: str | None = None
+    as_of: str | None = None
+
+
+class RetrievalPlanResponse(BaseModel):
+    strategies: list[StrategySelectionResponse]
+    router_kind: str
+    reason: str
+    confidence: float
+
+
 class RetrieveResponse(BaseModel):
     query: str
+    plan: RetrievalPlanResponse
     items: list[RetrievedChunkResponse]

@@ -2,7 +2,8 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from src.modules.retrieval.app.dto import RetrievalFilter
-from src.modules.retrieval.domain.models import HitChunk
+from src.modules.retrieval.domain.models import GraphPathEvidence, HitChunk
+from src.modules.retrieval.domain.plan import RetrievalPlan
 
 
 class ILexicalSearcher(Protocol):
@@ -32,4 +33,45 @@ class IRankFusion(Protocol):
         ranked_lists: Sequence[Sequence[HitChunk]],
         *,
         top_k: int,
+        weights: Sequence[float] | None = None,
     ) -> tuple[HitChunk, ...]: ...
+
+
+class IRetrievalStrategy(Protocol):
+    @property
+    def name(self) -> str: ...
+
+    def supports(self, plan: RetrievalPlan) -> bool: ...
+
+    async def retrieve(
+        self,
+        query: str,
+        *,
+        plan: RetrievalPlan,
+        filters: RetrievalFilter,
+    ) -> Sequence[HitChunk]: ...
+
+
+class IGraphSearcher(Protocol):
+    async def related_evidence(
+        self,
+        *,
+        org_id: int,
+        entities: Sequence[str],
+        max_hops: int,
+        limit: int,
+    ) -> Sequence[GraphPathEvidence]: ...
+
+
+class IGraphQueryAnalyzer(Protocol):
+    async def analyze(self, query: str) -> Sequence[str]: ...
+
+
+class IQueryRouter(Protocol):
+    async def route(
+        self,
+        query: str,
+        *,
+        filters: RetrievalFilter,
+        top_k: int,
+    ) -> RetrievalPlan: ...
