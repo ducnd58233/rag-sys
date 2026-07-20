@@ -32,8 +32,16 @@ class RetrievalPlan:
     reason: str
     confidence: float
 
+    def selection_for(self, name: str) -> StrategySelection | None:
+        return next(
+            (strategy for strategy in self.strategies if strategy.name == name),
+            None,
+        )
+
     @classmethod
-    def hybrid(cls, *, top_k: int, reason: str, confidence: float = 1.0) -> RetrievalPlan:
+    def hybrid(
+        cls, *, top_k: int, reason: str, confidence: float = 1.0
+    ) -> RetrievalPlan:
         return cls(
             strategies=(StrategySelection(name="hybrid", weight=1.0, top_k=top_k),),
             router_kind=RouterKind.FALLBACK,

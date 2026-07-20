@@ -1,19 +1,16 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Sequence
 
 from src.modules.retrieval.app.dto import RetrievedItem, RetrieveRequest, RetrieveResult
-from src.modules.retrieval.app.ports import (
-    IDenseSearcher,
-    ILexicalSearcher,
-    IRankFusion,
+from src.modules.retrieval.app.strategy_registry import RetrievalStrategyRegistry
+from src.modules.retrieval.domain.errors import (
+    RetrievalInternalError,
+    RetrievalValidationError,
 )
-from src.modules.retrieval.domain.errors import RetrievalValidationError
 from src.modules.retrieval.domain.models import HitChunk
 from src.modules.retrieval.domain.plan import RetrievalPlan
-from src.shared.app.ports import IEmbeddingModel
 from src.shared.configs.settings import RetrievalSettings
 
 logger = logging.getLogger(__name__)
@@ -23,16 +20,10 @@ class RetrieveUseCase:
     def __init__(
         self,
         retrieval_settings: RetrievalSettings,
-        embedder: IEmbeddingModel,
-        lexical_searcher: ILexicalSearcher,
-        dense_searcher: IDenseSearcher,
-        rank_fusion: IRankFusion,
+        strategy_registry: RetrievalStrategyRegistry,
     ) -> None:
         self._retrieval_settings = retrieval_settings
-        self._embedder = embedder
-        self._lexical_searcher = lexical_searcher
-        self._dense_searcher = dense_searcher
-        self._rank_fusion = rank_fusion
+        self._strategy_registry = strategy_registry
 
     async def execute(self, request: RetrieveRequest) -> RetrieveResult:
         query = request.query.strip()
@@ -53,37 +44,20 @@ class RetrieveUseCase:
             raise RetrievalValidationError("top_k must be greater than 0")
         plan = RetrievalPlan.hybrid(top_k=top_k, reason="hybrid_default")
 
-        vectors = await self._embedder.embed([query])
-        if not vectors or not vectors[0]:
-            raise RetrievalValidationError("failed to embed query")
-
-        query_vector = vectors[0]
-
-        lexical_hits, dense_hits = await asyncio.gather(
-            self._lexical_searcher.search(
-                query,
-                limit=self._retrieval_settings.num_candidates,
-                filters=request.filters,
-            ),
-            self._dense_searcher.search(
-                query_vector,
-                limit=self._retrieval_settings.num_candidates,
-                num_candidates=self._retrieval_settings.candidate_k,
-                filters=request.filters,
-            ),
-        )
-
-        ranked = self._rank_fusion.fuse(
-            [lexical_hits, dense_hits],
-            top_k=top_k,
+        strategies = self._strategy_registry.select(plan)
+        if not strategies:
+            raise RetrievalInternalError("no retrieval strategy supports the plan")
+        ranked = await strategies[0].retrieve(
+            query,
+            plan=plan,
+            filters=request.filters,
         )
         accepted = self._apply_fused_score_gate(ranked)
 
         logger.info(
-            "retrieve query_len=%d lexical=%d dense=%d fused=%d accepted=%d top_k=%d min_fused_score=%s",
+            "retrieve query_len=%d strategy=%s fused=%d accepted=%d top_k=%d min_fused_score=%s",
             len(query),
-            len(lexical_hits),
-            len(dense_hits),
+            ",".join(strategy.name for strategy in strategies),
             len(ranked),
             len(accepted),
             top_k,

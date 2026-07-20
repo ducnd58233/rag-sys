@@ -3,6 +3,7 @@ from typing import Protocol
 
 from src.modules.retrieval.app.dto import RetrievalFilter
 from src.modules.retrieval.domain.models import HitChunk
+from src.modules.retrieval.domain.plan import RetrievalPlan
 
 
 class ILexicalSearcher(Protocol):
@@ -33,3 +34,28 @@ class IRankFusion(Protocol):
         *,
         top_k: int,
     ) -> tuple[HitChunk, ...]: ...
+
+
+class IRetrievalStrategy(Protocol):
+    @property
+    def name(self) -> str: ...
+
+    def supports(self, plan: RetrievalPlan) -> bool: ...
+
+    async def retrieve(
+        self,
+        query: str,
+        *,
+        plan: RetrievalPlan,
+        filters: RetrievalFilter,
+    ) -> Sequence[HitChunk]: ...
+
+
+class IQueryRouter(Protocol):
+    async def route(
+        self,
+        query: str,
+        *,
+        filters: RetrievalFilter,
+        top_k: int,
+    ) -> RetrievalPlan: ...
