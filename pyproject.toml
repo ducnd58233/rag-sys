@@ -5,7 +5,6 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "aiohttp>=3.14.1",
     "aiokafka>=0.14.0",
     "alembic[tz]>=1.18.5",
     "asyncpg>=0.31.0",
@@ -25,10 +24,8 @@ dependencies = [
     "opentelemetry-instrumentation-sqlalchemy>=0.64b0",
     "opentelemetry-instrumentation-system-metrics>=0.64b0",
     "opentelemetry-sdk>=1.43.0",
-    "pyarrow>=18.0.0",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.2",
-    "pyyaml>=6.0.3",
     "snowflake-id>=1.0.2",
     "sqlalchemy>=2.0.51",
     "unstructured-inference>=1.6.12,<2.0.0",
@@ -69,6 +66,13 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "testcontainers[elasticsearch,neo4j,postgres]>=4.14.2",
 ]
+# scripts/evaluation/-only deps, kept out of the main install (see eval-prepare/eval-run below).
+evaluation = [
+    "aiohttp>=3.14.1",
+    "pyarrow>=18.0.0",
+    "pyyaml>=6.0.3",
+    "tqdm>=4.67.1",
+]
 
 [tool.poe.tasks]
 lint = "pre-commit run --all-files"
@@ -78,9 +82,8 @@ migrate-down = 'alembic downgrade -1'
 migrate-down-all = 'alembic downgrade base'
 test = "pytest"
 test-integration = "pytest tests/integration -m integration"
-eval-download-corpus = "python scripts/evaluation/download_bioasq.py"
-eval-index-corpus = "python scripts/evaluation/index_corpus.py"
-eval-dev = "python scripts/evaluation/run.py --split dev"
+eval-prepare = "uv run --group evaluation python scripts/evaluation/prepare.py"
+eval-run = "uv run --group evaluation python scripts/evaluation/run.py"
 
 [project.scripts]
 app = "src.app.api.main:run"

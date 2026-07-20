@@ -148,6 +148,30 @@ async def test_extract_merges_same_entity_seen_in_multiple_chunks() -> None:
 
 
 @pytest.mark.asyncio
+async def test_extraction_failure_for_one_chunk_is_skipped_not_raised() -> None:
+    chat = FakeChatModel(
+        [
+            RuntimeError("output parsing failure"),
+            {
+                "entities": [{"name": "Payment", "kind": "service"}],
+                "relations": [],
+            },
+        ]
+    )
+    extractor = LlmDocumentGraphExtractor(chat, extraction_max_characters=1000)
+    chunks = (
+        _chunk("42:1:0", "Broken chunk."),
+        _chunk("42:1:1", "Payment service overview."),
+    )
+
+    graph = await extractor.extract(source=_source(), chunks=chunks)
+
+    assert len(graph.entities) == 1
+    assert graph.entities[0].name == "Payment"
+    assert graph.relations == ()
+
+
+@pytest.mark.asyncio
 async def test_canonicalization_merges_aliases_across_chunks() -> None:
     chat = FakeChatModel(
         [

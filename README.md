@@ -35,16 +35,14 @@ make test-integration  # real Postgres/Elasticsearch/Neo4j via Testcontainers, n
 
 ## Evaluation
 
-Retrieval quality is measured with the [`rag-datasets/rag-mini-bioasq`](https://huggingface.co/datasets/rag-datasets/rag-mini-bioasq)
-benchmark (real BioASQ questions and passages, not self-generated), scored with deterministic
-metrics (recall/precision/hit-rate/MRR/nDCG) - see [`datasets/README.md`](datasets/README.md) for
-the corpus and dataset, and [`scripts/evaluation/`](scripts/evaluation) for the harness itself.
-
 ```bash
-uv run poe eval-download-corpus  # fetch the BioASQ parquet files
-uv run poe eval-index-corpus     # index the passage corpus into a running local stack
-uv run poe eval-dev              # score retrieval against the dev split
+make docker-up
+uv run poe eval-prepare  # download -> process -> ingest -> datasets/manifest.json
+uv run poe eval-run      # score retrieval against the dev split
 ```
+
+See [`datasets/README.md`](datasets/README.md) for the dataset, the manifest, and the id mapping,
+and [`scripts/evaluation/`](scripts/evaluation) for the harness itself.
 
 ## API documentation
 

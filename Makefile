@@ -7,7 +7,7 @@ OBS_DIR := deployments/observability
 COMPOSE_OBS := -f $(OBS_DIR)/docker-compose.observability.yml
 COMPOSE_LANGFUSE := -f $(OBS_DIR)/docker-compose.langfuse.yml
 
-.PHONY: docker-up docker-down docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-download-corpus eval-index-corpus eval-dev
+.PHONY: docker-up docker-down docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-prepare eval-run
 
 docker-up:
 	docker compose $(COMPOSE_BASE) up -d
@@ -47,17 +47,15 @@ obs-up-llm:
 obs-down-llm:
 	docker compose $(COMPOSE_OBS) $(COMPOSE_LANGFUSE) --profile llm down
 
+# --group evaluation: tests/evaluation/ imports pyarrow/aiohttp/pyyaml directly.
 test:
-	uv run poe test
+	uv run --group evaluation poe test
 
 test-integration:
-	uv run poe test-integration
+	uv run --group evaluation poe test-integration
 
-eval-download-corpus:
-	uv run poe eval-download-corpus
+eval-prepare:
+	uv run poe eval-prepare
 
-eval-index-corpus:
-	uv run poe eval-index-corpus
-
-eval-dev:
-	uv run poe eval-dev
+eval-run:
+	uv run poe eval-run

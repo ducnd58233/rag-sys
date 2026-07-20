@@ -108,13 +108,21 @@ class LlmDocumentGraphExtractor:
         source: DocumentVersionSource,
         chunk: Chunk,
     ) -> DocumentGraphSchema:
-        return await self._chat.complete_structured(
-            system=_EXTRACTION_SYSTEM,
-            user=_chunk_prompt(source, chunk, self._extraction_max_characters),
-            schema=DocumentGraphSchema,
-            temperature=0.0,
-            max_tokens=self._extraction_max_tokens,
-        )
+        # Graph enrichment is best-effort: a bad chunk must not fail the whole document.
+        try:
+            return await self._chat.complete_structured(
+                system=_EXTRACTION_SYSTEM,
+                user=_chunk_prompt(source, chunk, self._extraction_max_characters),
+                schema=DocumentGraphSchema,
+                temperature=0.0,
+                max_tokens=self._extraction_max_tokens,
+            )
+        except Exception:
+            logger.exception(
+                "graph extraction failed for chunk; skipping graph facts for it",
+                extra={"chunk_id": chunk.chunk_id},
+            )
+            return DocumentGraphSchema()
 
     async def _canonicalize(self, names: Sequence[str]) -> dict[str, str]:
         distinct = sorted({name.strip() for name in names if name.strip()})

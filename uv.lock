@@ -2957,7 +2957,6 @@ name = "rag-sys"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "aiohttp" },
     { name = "aiokafka" },
     { name = "alembic", extra = ["tz"] },
     { name = "asyncpg" },
@@ -2977,10 +2976,8 @@ dependencies = [
     { name = "opentelemetry-instrumentation-sqlalchemy" },
     { name = "opentelemetry-instrumentation-system-metrics" },
     { name = "opentelemetry-sdk" },
-    { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "pyyaml" },
     { name = "snowflake-id" },
     { name = "sqlalchemy" },
     { name = "unstructured", extra = ["docx", "md", "pdf"] },
@@ -2996,10 +2993,15 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "testcontainers", extra = ["neo4j"] },
 ]
+evaluation = [
+    { name = "aiohttp" },
+    { name = "pyarrow" },
+    { name = "pyyaml" },
+    { name = "tqdm" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.14.1" },
     { name = "aiokafka", specifier = ">=0.14.0" },
     { name = "alembic", extras = ["tz"], specifier = ">=1.18.5" },
     { name = "asyncpg", specifier = ">=0.31.0" },
@@ -3019,10 +3021,8 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-sqlalchemy", specifier = ">=0.64b0" },
     { name = "opentelemetry-instrumentation-system-metrics", specifier = ">=0.64b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.43.0" },
-    { name = "pyarrow", specifier = ">=18.0.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pydantic-settings", specifier = ">=2.14.2" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "snowflake-id", specifier = ">=1.0.2" },
     { name = "sqlalchemy", specifier = ">=2.0.51" },
     { name = "unstructured", extras = ["docx", "md", "pdf"], specifier = ">=0.24.0" },
@@ -3037,6 +3037,12 @@ dev = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },
     { name = "testcontainers", extras = ["elasticsearch", "neo4j", "postgres"], specifier = ">=4.14.2" },
+]
+evaluation = [
+    { name = "aiohttp", specifier = ">=3.14.1" },
+    { name = "pyarrow", specifier = ">=18.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "tqdm", specifier = ">=4.67.1" },
 ]
 
 [[package]]

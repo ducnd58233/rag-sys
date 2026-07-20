@@ -28,9 +28,10 @@ server/.valiq-*/
 .idea/
 *.code-workspace.user
 
-# Evaluation corpus fixtures (fetched by scripts/evaluation/download_bioasq.py,
-# not committed) and run output (exported locally per run, not committed).
-datasets/bioasq/raw/*
-datasets/bioasq/.index-progress.txt
+# Evaluation datasets and run output - all reproducible via `uv run poe eval-prepare`.
+datasets/*/raw/*
+datasets/*/processed/*
+datasets/*/.index-progress.jsonl
+datasets/manifest.json
 runs/evaluation/*
 !runs/evaluation/.gitkeep
