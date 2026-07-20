@@ -74,7 +74,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "{ name =~ \"generation.ask|generation.query_analysis|generation.retrieve.*|generation.context_merge|generation.answer_synthesis|chat .*|embeddings .*\" }",
+          "query": "{ name =~ \"generation.ask|generation.query_analysis|generation.retrieve.*|generation.context_merge|generation.answer_synthesis|retrieval.retrieve|retrieval.strategy.*|chat .*|embeddings .*\" }",
           "queryType": "traceql",
           "limit": 20,
           "tableType": "traces"
@@ -107,6 +107,27 @@
       "gridPos": { "h": 7, "w": 8, "x": 16, "y": 35 },
       "datasource": "Prometheus",
       "targets": [{ "expr": "sum by (strategy) (rate(rag_generation_ask_subquestions_sum[5m])) / sum by (strategy) (rate(rag_generation_ask_subquestions_count[5m]))", "legendFormat": "{{strategy}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 14, "title": "Router fallback ratio", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 42 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(rag_router_decisions_total{router_kind=\"fallback\"}[5m])) / sum(rate(rag_router_decisions_total[5m]))", "legendFormat": "fallback" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+    },
+    {
+      "id": 15, "title": "Retrieval strategy p95 latency", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 42 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, strategy, outcome) (rate(rag_retrieval_strategy_duration_seconds_bucket[5m])))", "legendFormat": "{{strategy}} {{outcome}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 16, "title": "Retrieval strategy results", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 42 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (strategy, outcome) (rate(rag_retrieval_strategy_results_sum[5m])) / sum by (strategy, outcome) (rate(rag_retrieval_strategy_results_count[5m]))", "legendFormat": "{{strategy}} {{outcome}}" }],
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
     }
   ]

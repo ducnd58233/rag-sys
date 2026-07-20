@@ -240,4 +240,16 @@ def _histogram_views() -> list[View]:
                 (0, 1, 2, 4, 8, 12, 16, 24, 32),
             ),
         ),
+        View(
+            instrument_name="rag.retrieval.strategy.duration",
+            aggregation=ExplicitBucketHistogramAggregation(
+                (0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+            ),
+        ),
+        View(
+            instrument_name="rag.retrieval.strategy.results",
+            aggregation=ExplicitBucketHistogramAggregation(
+                (0, 1, 2, 4, 8, 12, 16, 24, 32, 64, 128),
+            ),
+        ),
     ]

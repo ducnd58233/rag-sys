@@ -29,7 +29,7 @@ Key dashboards in Grafana:
 - `20 - Worker / Consumer`: worker step duration, consume latency, in-flight messages, lag, memory.
 - `40 - Runtime / Resources`: process and container memory, CPU, GC.
 - `60 - Request Traces`: recent, slow, worker, and error traces. Open a trace row to inspect the span waterfall for one request.
-- `70 - LLM / RAG Ask`: `/generation/ask` latency, LLM operation latency, token usage, refusal/error rate, citation coverage, retrieval query fan-out, context counts, and simple vs decomposed strategy split.
+- `70 - LLM / RAG Ask`: `/generation/ask` latency, LLM operation latency, token usage, refusal/error rate, citation coverage, retrieval query fan-out, context counts, router fallback ratio, retrieval strategy latency, retrieval strategy result counts, and simple vs decomposed strategy split.
 
 For complex RAG requests, inspect Tempo traces for these spans:
 
@@ -37,6 +37,8 @@ For complex RAG requests, inspect Tempo traces for these spans:
 - `generation.query_analysis`
 - `generation.retrieve.original`
 - `generation.retrieve.subquestion`
+- `retrieval.retrieve`
+- `retrieval.strategy.<name>`
 - `generation.context_merge`
 - `generation.answer_synthesis`
 
