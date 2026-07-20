@@ -16,6 +16,13 @@ uv run app       # or: uv run dev (auto-reload)
 uv run worker
 ```
 
+## Testing
+
+```bash
+make test              # fast unit tests, mocked/faked infra, no Docker required
+make test-integration  # real Postgres/Elasticsearch/Neo4j via Testcontainers, needs Docker
+```
+
 ## API documentation
 
 After starting the API with `uv run app` or `uv run dev`, open:
