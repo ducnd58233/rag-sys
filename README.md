@@ -36,9 +36,10 @@ make test-integration  # real Postgres/Elasticsearch/Neo4j via Testcontainers, n
 ## Evaluation
 
 ```bash
+uv sync --group evaluation  # one-time per clone
 make docker-up
-uv run poe eval-prepare  # download -> process -> ingest -> datasets/manifest.json
-uv run poe eval-run      # score retrieval against the dev split
+make eval-prepare  # download -> process -> ingest -> datasets/manifest.json
+make eval-run       # score retrieval against the dev split
 ```
 
 See [`datasets/README.md`](datasets/README.md) for the dataset, the manifest, and the id mapping,

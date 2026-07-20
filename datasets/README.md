@@ -9,9 +9,10 @@ taken verbatim from that dataset.
 ## Two commands
 
 ```bash
+uv sync --group evaluation  # one-time per clone
 make docker-up
-uv run poe eval-prepare   # download -> process -> ingest -> datasets/manifest.json
-uv run poe eval-run       # score retrieval against the dev split, using that manifest
+make eval-prepare  # download -> process -> ingest -> datasets/manifest.json
+make eval-run       # score retrieval against the dev split, using that manifest
 ```
 
 `eval-prepare` (`scripts/evaluation/prepare.py`) does everything needed before a run can score
@@ -20,8 +21,16 @@ app's own use cases, and record what happened. `eval-run` (`scripts/evaluation/r
 that record and the running app's HTTP API - it does not touch the dataset source, the filesystem
 layout, or the DB directly. Both use the `uv` `evaluation` dependency group (`pyarrow`, `aiohttp`,
 `pyyaml`, `tqdm`) rather than the project's main dependencies, so a production install (API/worker
-image) never pulls in tooling it doesn't need; `Makefile`'s `eval-prepare`/`eval-run`/`test` targets
-already pass `--group evaluation` where it's needed.
+image) never pulls in tooling it doesn't need.
+
+**Use `make eval-prepare`/`make eval-run`, not a bare `uv run poe eval-prepare`/`eval-run`**, if
+`uv run app`/`uv run worker` are already running against the same local stack (the normal way to
+use `eval-run`, since it scores the live HTTP API). A bare `uv run poe ...` always re-checks whether
+the project needs rebuilding first, which on Windows tries to overwrite `app.exe`/`worker.exe`
+while those processes still have them open, failing with a file-in-use error before poe even
+starts. The `Makefile` targets add `--no-sync` at every level to skip that check - hence the
+one-time `uv sync --group evaluation` above; run it again after pulling changes that touch
+`pyproject.toml` or `src/`.
 
 `eval-run` defaults to `--split dev` (~80% of cases, chosen so headline numbers aren't tuned
 directly against the same cases used to report them). Pass `--split test` for the held-out 20%, or
@@ -192,7 +201,7 @@ and never import a source module by name directly, so neither script changes.
 ## Cleaning up
 
 ```bash
-uv run poe eval-run -- --cleanup
+uv run --no-sync poe eval-run -- --cleanup
 ```
 
 Deletes `datasets/<dataset>/processed/` and the `.index-progress.jsonl` log after writing results -

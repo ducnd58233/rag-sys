@@ -54,8 +54,12 @@ test:
 test-integration:
 	uv run --group evaluation poe test-integration
 
+# --no-sync on the outer uv run too: eval-prepare/eval-run are normally used while
+# `uv run app`/`uv run worker` are already running, and uv's own "does the project
+# need rebuilding" check would otherwise try to overwrite app.exe/worker.exe while
+# Windows still has them open as a running process.
 eval-prepare:
-	uv run poe eval-prepare
+	uv run --no-sync poe eval-prepare
 
 eval-run:
-	uv run poe eval-run
+	uv run --no-sync poe eval-run
