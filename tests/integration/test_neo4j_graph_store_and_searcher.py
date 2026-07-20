@@ -210,7 +210,6 @@ async def test_related_evidence_traverses_two_hops_with_correct_chunk_ids(
     payment = f"Payment-{unique_id}"
     db_pool = f"DatabasePool-{unique_id}"
 
-    # Checkout -> Payment -> DatabasePool, a genuine 2-hop chain.
     await store.upsert(
         source=_source(
             org_id=org_id, document_id=unique_id + 1, document_version_id=unique_id + 2
@@ -365,8 +364,6 @@ async def test_related_evidence_excludes_chunk_ids_from_a_since_superseded_versi
     checkout = f"Checkout-{unique_id}"
     payment = f"Payment-{unique_id}"
 
-    # First ingestion: still valid today, asserts the relationship with
-    # chunk "fresh-chunk".
     await store.upsert(
         source=_source(
             org_id=org_id,
@@ -388,8 +385,6 @@ async def test_related_evidence_excludes_chunk_ids_from_a_since_superseded_versi
             ),
         ),
     )
-    # Second ingestion: already superseded (valid_to in the past), asserts
-    # the SAME relationship with a different chunk, "stale-chunk".
     await store.upsert(
         source=_source(
             org_id=org_id,
