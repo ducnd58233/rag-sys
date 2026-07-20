@@ -17,6 +17,7 @@ class StrategySelection:
     weight: float
     top_k: int
     query: str | None = None
+    as_of: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result = {
@@ -26,6 +27,8 @@ class StrategySelection:
         }
         if self.query is not None:
             result["query"] = self.query
+        if self.as_of is not None:
+            result["as_of"] = self.as_of
         return result
 
 

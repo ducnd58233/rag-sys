@@ -52,6 +52,21 @@ class IRetrievalStrategy(Protocol):
     ) -> Sequence[HitChunk]: ...
 
 
+class IGraphSearcher(Protocol):
+    async def related_document_ids(
+        self,
+        *,
+        org_id: int,
+        entities: Sequence[str],
+        max_hops: int,
+        limit: int,
+    ) -> Sequence[str]: ...
+
+
+class IGraphQueryAnalyzer(Protocol):
+    async def analyze(self, query: str) -> Sequence[str]: ...
+
+
 class IQueryRouter(Protocol):
     async def route(
         self,

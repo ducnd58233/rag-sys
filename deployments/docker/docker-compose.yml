@@ -171,8 +171,28 @@ services:
       DYNAMIC_CONFIG_ENABLED: 'true'
     restart: unless-stopped
 
+  neo4j:
+    image: neo4j:2026.06.0
+    environment:
+      NEO4J_AUTH: neo4j/rag-sys-dev
+    ports:
+      - '7474:7474'
+      - '7687:7687'
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - cypher-shell -u neo4j -p rag-sys-dev "RETURN 1"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
+
 volumes:
   es_data:
   pg_data:
   minio_data:
   kafka_data:
+  neo4j_data:

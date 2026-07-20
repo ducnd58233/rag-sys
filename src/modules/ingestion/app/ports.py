@@ -5,6 +5,7 @@ from contextlib import AbstractAsyncContextManager
 from datetime import datetime
 from typing import Protocol
 
+from src.modules.ingestion.domain.graph import DocumentGraph
 from src.modules.ingestion.domain.models import (
     Chunk,
     DocumentId,
@@ -31,13 +32,6 @@ class IDocumentProcessor(Protocol):
 class IVectorStore(Protocol):
     async def create_index_if_not_exists(self) -> None: ...
 
-    async def delete_by_document_version_id(
-        self,
-        *,
-        org_id: int,
-        document_version_id: int,
-    ) -> None: ...
-
     async def close_superseded_versions(
         self,
         *,
@@ -45,6 +39,13 @@ class IVectorStore(Protocol):
         document_id: DocumentId,
         active_document_version_id: int,
         valid_to: datetime,
+    ) -> None: ...
+
+    async def delete_by_document_version_id(
+        self,
+        *,
+        org_id: int,
+        document_version_id: int,
     ) -> None: ...
 
     async def upsert(
@@ -59,4 +60,22 @@ class IVectorStore(Protocol):
         vectors: Sequence[Sequence[float]],
         valid_from: datetime,
         valid_to: datetime | None,
+    ) -> None: ...
+
+
+class IDocumentGraphExtractor(Protocol):
+    async def extract(
+        self,
+        *,
+        source: DocumentVersionSource,
+        chunks: Sequence[Chunk],
+    ) -> DocumentGraph: ...
+
+
+class IDocumentGraphStore(Protocol):
+    async def upsert(
+        self,
+        *,
+        source: DocumentVersionSource,
+        graph: DocumentGraph,
     ) -> None: ...

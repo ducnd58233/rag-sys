@@ -23,14 +23,17 @@ from src.modules.ingestion.app.handlers.ingestion_requested import (
     IngestionRequestedHandler,
 )
 from src.modules.ingestion.app.ports import IVectorStore
+from src.modules.ingestion.infra.graphdb import Neo4jDocumentGraphStore
 from src.modules.retrieval import RetrievalComponentFactory, RetrieveUseCase
-from src.shared.app.ports import IEmbeddingModel, IObjectStorage
+from src.modules.retrieval.infra.graphdb import Neo4jGraphSearcher
+from src.shared.app.ports import IEmbeddingModel, IGraphDb, IObjectStorage
 from src.shared.configs.logger import configure_logging
 from src.shared.configs.settings import Settings
 from src.shared.infra.chat import ChatModelFactory
 from src.shared.infra.database import Database
 from src.shared.infra.elasticsearch.client import Elasticsearch
 from src.shared.infra.embedding import EmbeddingModelFactory
+from src.shared.infra.graphdb import Neo4jGraphDb
 from src.shared.infra.id_generator import SnowflakeIdGenerator
 from src.shared.infra.mq import AioKafkaPublisher
 from src.shared.infra.object_storage import MinioObjectStorage
@@ -44,6 +47,7 @@ class AppContainer:
     database: Database
     object_storage: IObjectStorage
     elasticsearch: Elasticsearch
+    graphdb: IGraphDb
     embedding_model: IEmbeddingModel
     kafka_publisher: AioKafkaPublisher
     create_document_upload: CreateDocumentUploadUrlUseCase
@@ -57,12 +61,14 @@ class AppContainer:
     answer_question: AnswerQuestionUseCase
 
     async def startup(self) -> None:
+        await self.graphdb.initialize()
         await self.vector_store.create_index_if_not_exists()
         await self.kafka_publisher.start()
 
     async def shutdown(self) -> None:
         await asyncio.gather(
             self.elasticsearch.close(),
+            self.graphdb.close(),
             self.database.close(),
             self.kafka_publisher.close(),
             self.observability.shutdown(),
@@ -91,6 +97,7 @@ def build_container(
         resolved.object_storage,
     )
     elasticsearch = Elasticsearch(resolved.elasticsearch)
+    graphdb = Neo4jGraphDb(resolved.graphdb)
     embedding_model = EmbeddingModelFactory.from_settings(
         resolved.embedding,
     )
@@ -117,13 +124,16 @@ def build_container(
         settings=resolved,
         elasticsearch=elasticsearch,
         embedder=embedding_model,
+        chat_model=chat_model,
         id_generator=id_generator,
+        graph_store=Neo4jDocumentGraphStore(graphdb),
     )
     retrieval_components = RetrievalComponentFactory.build(
         settings=resolved,
         elasticsearch=elasticsearch,
         embedder=embedding_model,
         chat_model=chat_model,
+        graph_searcher=Neo4jGraphSearcher(graphdb),
     )
     generation_components = GenerationComponentFactory.build(
         settings=resolved,
@@ -137,6 +147,7 @@ def build_container(
         database=database,
         object_storage=object_storage,
         elasticsearch=elasticsearch,
+        graphdb=graphdb,
         embedding_model=embedding_model,
         kafka_publisher=kafka_publisher,
         create_document_upload=(document_components.create_upload_url),

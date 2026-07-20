@@ -16,6 +16,8 @@ from src.modules.document.domain.models import (
 )
 from src.modules.ingestion.app.dto import IngestDocumentRequest, IngestDocumentResult
 from src.modules.ingestion.app.ports import (
+    IDocumentGraphExtractor,
+    IDocumentGraphStore,
     IDocumentProcessor,
     ISourceResolver,
     IVectorStore,
@@ -48,12 +50,16 @@ class IngestDocumentUseCase:
         processor: IDocumentProcessor,
         embedder: IEmbeddingModel,
         vector_store: IVectorStore,
+        graph_extractor: IDocumentGraphExtractor,
+        graph_store: IDocumentGraphStore,
     ) -> None:
         self._doc_uow = doc_uow
         self._source_resolver = source_resolver
         self._processor = processor
         self._embedder = embedder
         self._vector_store = vector_store
+        self._graph_extractor = graph_extractor
+        self._graph_store = graph_store
 
     async def execute(
         self,
@@ -143,6 +149,16 @@ class IngestDocumentUseCase:
                             valid_from=source.valid_from,
                             valid_to=source.valid_to,
                         )
+
+                async with self._step("graph"):
+                    graph = await self._graph_extractor.extract(
+                        source=source,
+                        chunks=chunks,
+                    )
+                    await self._graph_store.upsert(
+                        source=source,
+                        graph=graph,
+                    )
 
                 await self._mark_indexed(request)
             except Exception:

@@ -44,6 +44,8 @@ async def search(
                     name=strategy.name,
                     weight=strategy.weight,
                     top_k=strategy.top_k,
+                    query=strategy.query,
+                    as_of=strategy.as_of,
                 )
                 for strategy in result.plan.strategies
             ],

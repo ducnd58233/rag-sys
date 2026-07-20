@@ -73,7 +73,7 @@ async def test_llm_router_uses_structured_temperature_zero_and_caps_strategies()
             {
                 "strategies": [
                     {"name": "semantic", "weight": 0.2},
-                    {"name": "lexical", "weight": 0.9},
+                    {"name": "lexical", "weight": 0.9, "query": "policy version"},
                     {"name": "structured", "weight": 0.5},
                 ],
                 "reason": "mixed",
@@ -93,11 +93,56 @@ async def test_llm_router_uses_structured_temperature_zero_and_caps_strategies()
         "lexical",
         "structured",
     ]
+    assert [strategy.query for strategy in plan.strategies] == [
+        "policy version",
+        None,
+    ]
     assert [strategy.top_k for strategy in plan.strategies] == [6, 6]
     assert plan.router_kind == RouterKind.LLM
     assert plan.reason == "mixed"
     assert chat.calls[0]["temperature"] == 0.0
     assert chat.calls[0]["max_tokens"] == 256
+
+
+@pytest.mark.asyncio
+async def test_llm_router_carries_temporal_and_graph_parameters() -> None:
+    chat = FakeChatModel(
+        [
+            {
+                "strategies": [
+                    {
+                        "name": "temporal",
+                        "weight": 0.7,
+                        "query": "checkout policy",
+                        "as_of": "2026-01-01T00:00:00+00:00",
+                    },
+                    {
+                        "name": "graph",
+                        "weight": 0.3,
+                        "query": "checkout dependencies",
+                    },
+                ],
+                "reason": "temporal relationship",
+                "confidence": 0.8,
+            }
+        ]
+    )
+    router = LlmRouter(
+        RoutingSettings(),
+        chat,
+        allowed_strategies=("temporal", "graph", "hybrid"),
+    )
+
+    plan = await router.route(
+        "what depended on checkout as of 2026-01-01",
+        filters=_filters(),
+        top_k=5,
+    )
+
+    assert [(item.name, item.query, item.as_of) for item in plan.strategies] == [
+        ("temporal", "checkout policy", "2026-01-01T00:00:00+00:00"),
+        ("graph", "checkout dependencies", None),
+    ]
 
 
 @pytest.mark.asyncio

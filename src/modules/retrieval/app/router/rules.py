@@ -44,22 +44,6 @@ class RuleRouter:
                 reason="identifier",
                 confidence=0.9,
             )
-        if self._matches_any(query, self._settings.temporal_terms):
-            strategies = [StrategySelection(name="hybrid", weight=0.5, top_k=top_k)]
-            if self._settings.temporal_enabled:
-                strategies.insert(
-                    0,
-                    StrategySelection(name="temporal", weight=0.5, top_k=top_k),
-                )
-            return _plan(*strategies, reason="temporal", confidence=0.6)
-        if self._matches_any(query, self._settings.relationship_terms):
-            strategies = [StrategySelection(name="hybrid", weight=0.5, top_k=top_k)]
-            if self._settings.graph_enabled:
-                strategies.insert(
-                    0,
-                    StrategySelection(name="graph", weight=0.5, top_k=top_k),
-                )
-            return _plan(*strategies, reason="relationship", confidence=0.6)
         return None
 
     def _match_identifier(self, query: str) -> str | None:
@@ -68,11 +52,6 @@ class RuleRouter:
             if match is not None:
                 return match.group(0)
         return None
-
-    @staticmethod
-    def _matches_any(query: str, terms: list[str]) -> bool:
-        normalized = query.casefold()
-        return any(term.casefold() in normalized for term in terms)
 
 
 def _plan(

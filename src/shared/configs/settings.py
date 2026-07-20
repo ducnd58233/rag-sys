@@ -158,7 +158,7 @@ class RoutingSettings(BaseSettings):
     enabled: bool = Field(default=True)
     default_strategy: str = Field(default="hybrid")
     max_concurrent_strategies: int = Field(default=3, ge=1, le=6)
-    llm_router_enabled: bool = Field(default=False)
+    llm_router_enabled: bool = Field(default=True)
     llm_router_timeout_seconds: float = Field(default=2.0, gt=0)
     identifier_patterns: list[str] = Field(default_factory=lambda: [r"[a-z]+-\d{3,}"])
     structured_fields: list[str] = Field(
@@ -172,14 +172,22 @@ class RoutingSettings(BaseSettings):
     )
     temporal_enabled: bool = Field(default=True)
     temporal_recency_half_life_days: float = Field(default=90.0, gt=0)
-    temporal_terms: list[str] = Field(
-        default_factory=lambda: ["latest", "as of", "changed since", "version"]
-    )
-    graph_enabled: bool = Field(default=False)
+    graph_enabled: bool = Field(default=True)
     graph_max_hops: int = Field(default=2, ge=1, le=4)
-    relationship_terms: list[str] = Field(
-        default_factory=lambda: ["caused", "related to", "depends on"]
+
+
+class GraphDbSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="GRAPHDB_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
+    uri: str = Field(default="bolt://localhost:7687")
+    username: str = Field(default="neo4j")
+    password: SecretStr = Field(default=SecretStr("rag-sys-dev"))
+    database: str = Field(default="neo4j")
+    extraction_max_characters: int = Field(default=12_000, ge=1)
 
 
 class DatabaseSettings(BaseSettings):
@@ -289,6 +297,7 @@ class Settings(BaseSettings):
     document: DocumentSettings = Field(default_factory=DocumentSettings)
     kafka: KafkaSettings = Field(default_factory=KafkaSettings)
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
+    graphdb: GraphDbSettings = Field(default_factory=GraphDbSettings)
 
     @model_validator(mode="after")
     def _validate_kafka_max_poll_interval(self) -> "Settings":

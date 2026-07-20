@@ -55,11 +55,9 @@ async def test_rule_router_orders_explicit_filter_before_identifier() -> None:
 
 
 @pytest.mark.asyncio
-async def test_rule_router_routes_temporal_and_relationship_queries() -> None:
-    temporal_router = RuleRouter(_routing_settings(temporal_terms=["as of"]))
-    relationship_router = RuleRouter(
-        _routing_settings(relationship_terms=["depends"], graph_enabled=True)
-    )
+async def test_rule_router_leaves_temporal_and_relationship_queries_for_llm() -> None:
+    temporal_router = RuleRouter(_routing_settings())
+    relationship_router = RuleRouter(_routing_settings())
 
     temporal = await temporal_router.route(
         "policy as of 2024",
@@ -72,13 +70,8 @@ async def test_rule_router_routes_temporal_and_relationship_queries() -> None:
         top_k=4,
     )
 
-    assert temporal is not None
-    assert [strategy.name for strategy in temporal.strategies] == ["temporal", "hybrid"]
-    assert relationship is not None
-    assert [strategy.name for strategy in relationship.strategies] == [
-        "graph",
-        "hybrid",
-    ]
+    assert temporal is None
+    assert relationship is None
 
 
 @pytest.mark.asyncio
@@ -148,8 +141,6 @@ class BrokenRuleRouter:
 def _routing_settings(**overrides: object) -> RoutingSettings:
     values = {
         "identifier_patterns": [r"[a-z]+-\d{3,}"],
-        "temporal_terms": ["latest", "as of"],
-        "relationship_terms": ["depends on"],
         **overrides,
     }
     return RoutingSettings(**values)

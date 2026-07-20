@@ -26,6 +26,8 @@ class StrategySelectionResponse(BaseModel):
     name: str
     weight: float
     top_k: int
+    query: str | None = None
+    as_of: str | None = None
 
 
 class RetrievalPlanResponse(BaseModel):

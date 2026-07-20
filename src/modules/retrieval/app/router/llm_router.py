@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 
 from src.modules.retrieval.app.dto import RetrievalFilter
 from src.modules.retrieval.app.router.llm_schema import RouterPlanSchema
@@ -15,13 +16,17 @@ from src.shared.configs.settings import RoutingSettings
 _SYSTEM = """
 You route one RAG retrieval query to the best retrieval strategies.
 Return JSON with:
-- strategies: list of {name, weight}
+- strategies: list of {name, weight, query, as_of}
 - reason: short reason
 - confidence: number from 0 to 1
 
 Use only strategy names provided by the user message.
 Prefer one strategy for confident cases.
 Use multiple strategies when evidence needs different retrieval modes.
+Use temporal when the query asks for latest, recency, versions, or state at a time.
+For temporal "as of" queries, set as_of to an ISO-8601 timestamp inferred from the query.
+Use graph when the query asks about relationships, dependencies, causes, references, or multi-hop links.
+Set query to the best short search phrase for each selected strategy.
 Do not answer the query.
 """.strip()
 
@@ -113,7 +118,8 @@ def _user_prompt(
     return (
         f"QUERY: {query}\n"
         f"ALLOWED_STRATEGIES: {', '.join(allowed_strategies)}\n"
-        f"HAS_DOCUMENT_FILTER: {filters.document_id is not None or filters.document_version_id is not None}"
+        f"HAS_DOCUMENT_FILTER: {filters.document_id is not None or filters.document_version_id is not None}\n"
+        f"CURRENT_DATE: {datetime.now(UTC).date().isoformat()}"
     )
 
 
@@ -125,7 +131,13 @@ def _plan_from_result(
     max_strategies: int,
 ) -> RetrievalPlan | None:
     selected = [
-        StrategySelection(name=item.name, weight=item.weight, top_k=top_k)
+        StrategySelection(
+            name=item.name,
+            weight=item.weight,
+            top_k=top_k,
+            query=item.query,
+            as_of=item.as_of,
+        )
         for item in result.strategies
         if item.name in allowed_strategies
     ]

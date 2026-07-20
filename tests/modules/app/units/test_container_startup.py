@@ -13,6 +13,14 @@ class FakeVectorStore:
         self._events.append("index")
 
 
+class FakeGraphDb:
+    def __init__(self, events: list[str]) -> None:
+        self._events = events
+
+    async def initialize(self) -> None:
+        self._events.append("graphdb")
+
+
 class FakeKafkaPublisher:
     def __init__(self, events: list[str]) -> None:
         self._events = events
@@ -30,6 +38,7 @@ async def test_startup_prepares_vector_index_before_kafka() -> None:
         database=object(),
         object_storage=object(),
         elasticsearch=object(),
+        graphdb=FakeGraphDb(events),
         embedding_model=object(),
         kafka_publisher=FakeKafkaPublisher(events),
         create_document_upload=object(),
@@ -45,4 +54,4 @@ async def test_startup_prepares_vector_index_before_kafka() -> None:
 
     await container.startup()
 
-    assert events == ["index", "kafka"]
+    assert events == ["graphdb", "index", "kafka"]
