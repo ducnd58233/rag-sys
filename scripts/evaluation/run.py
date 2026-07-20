@@ -22,7 +22,7 @@ from scripts.evaluation.metrics.retrieval import (
 from scripts.evaluation.report import render_summary
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_DATASET = _REPO_ROOT / "datasets" / "golden" / "golden-v0.1.jsonl"
+_DEFAULT_DATASET = _REPO_ROOT / "datasets" / "golden" / "golden-v0.2.jsonl"
 _RUNS_DIR = _REPO_ROOT / "runs" / "evaluation"
 
 _ADJECTIVES = (
