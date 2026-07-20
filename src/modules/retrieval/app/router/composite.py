@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src.modules.retrieval.app.dto import RetrievalFilter
 from src.modules.retrieval.app.ports import IQueryRouter
+from src.modules.retrieval.app.router.llm_router import LlmRouter
 from src.modules.retrieval.app.router.rules import RuleRouter
 from src.modules.retrieval.domain.plan import RetrievalPlan, RouterKind
 from src.shared.configs.settings import RoutingSettings
@@ -12,9 +13,11 @@ class CompositeQueryRouter(IQueryRouter):
         self,
         settings: RoutingSettings,
         rule_router: RuleRouter,
+        llm_router: LlmRouter | None = None,
     ) -> None:
         self._settings = settings
         self._rule_router = rule_router
+        self._llm_router = llm_router
 
     async def route(
         self,
@@ -35,6 +38,18 @@ class CompositeQueryRouter(IQueryRouter):
             return self._fallback_plan(top_k, reason="router_error")
         if rule_plan is not None:
             return _cap_plan(rule_plan, self._settings.max_concurrent_strategies)
+        if self._settings.llm_router_enabled and self._llm_router is not None:
+            try:
+                return _cap_plan(
+                    await self._llm_router.route(
+                        query,
+                        filters=filters,
+                        top_k=top_k,
+                    ),
+                    self._settings.max_concurrent_strategies,
+                )
+            except Exception:
+                return self._fallback_plan(top_k, reason="llm_router_error")
         return self._fallback_plan(top_k, reason="llm_router_disabled")
 
     def _fallback_plan(self, top_k: int, *, reason: str) -> RetrievalPlan:

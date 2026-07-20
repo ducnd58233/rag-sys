@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.modules.retrieval.app.router import CompositeQueryRouter, RuleRouter
+from src.modules.retrieval.app.router import CompositeQueryRouter, LlmRouter, RuleRouter
 from src.modules.retrieval.app.strategy_registry import RetrievalStrategyRegistry
 from src.modules.retrieval.app.use_cases.retrieve import RetrieveUseCase
 from src.modules.retrieval.infra.elasticsearch.dense_searcher import (
@@ -18,7 +18,7 @@ from src.modules.retrieval.infra.strategies import (
     SemanticStrategy,
     StructuredStrategy,
 )
-from src.shared.app.ports import IEmbeddingModel
+from src.shared.app.ports import IChatModel, IEmbeddingModel
 from src.shared.configs.settings import Settings
 from src.shared.infra.elasticsearch.client import Elasticsearch
 
@@ -37,6 +37,7 @@ class RetrievalComponentFactory:
         settings: Settings,
         elasticsearch: Elasticsearch,
         embedder: IEmbeddingModel,
+        chat_model: IChatModel | None = None,
     ) -> RetrievalComponents:
         retrieval = settings.retrieval
         rank_fusion = ReciprocalRankFusion(rank_constant=retrieval.rank_constant)
@@ -64,6 +65,15 @@ class RetrievalComponentFactory:
         query_router = CompositeQueryRouter(
             settings.routing,
             RuleRouter(settings.routing),
+            (
+                LlmRouter(
+                    settings.routing,
+                    chat_model,
+                    allowed_strategies=strategy_registry.names,
+                )
+                if chat_model is not None
+                else None
+            ),
         )
         return RetrievalComponents(
             retrieve=RetrieveUseCase(

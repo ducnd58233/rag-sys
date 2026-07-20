@@ -26,6 +26,7 @@ from src.modules.retrieval import RetrievalComponentFactory, RetrieveUseCase
 from src.shared.app.ports import IEmbeddingModel, IObjectStorage
 from src.shared.configs.logger import configure_logging
 from src.shared.configs.settings import Settings
+from src.shared.infra.chat import ChatModelFactory
 from src.shared.infra.database import Database
 from src.shared.infra.elasticsearch.client import Elasticsearch
 from src.shared.infra.embedding import EmbeddingModelFactory
@@ -90,6 +91,7 @@ def build_container(
     embedding_model = EmbeddingModelFactory.from_settings(
         resolved.embedding,
     )
+    chat_model = ChatModelFactory.from_settings(resolved.chat)
     id_generator = SnowflakeIdGenerator(
         resolved.snowflake.instance_id,
     )
@@ -118,10 +120,12 @@ def build_container(
         settings=resolved,
         elasticsearch=elasticsearch,
         embedder=embedding_model,
+        chat_model=chat_model,
     )
     generation_components = GenerationComponentFactory.build(
         settings=resolved,
         retrieve_use_case=retrieval_components.retrieve,
+        chat_model=chat_model,
     )
 
     return AppContainer(
