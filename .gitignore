@@ -27,3 +27,15 @@ server/.valiq-*/
 # OS / IDE
 .idea/
 *.code-workspace.user
+
+# Evaluation corpus fixtures (fetched by scripts/evaluation/download_corpus.py;
+# not committed, see docs/rag-evaluation/PLAN.md ADR-EV-006) and run output
+# (exported locally, see docs/rag-evaluation/SPEC.md D5 revision).
+datasets/pdf/*
+!datasets/pdf/.gitkeep
+datasets/md/*
+!datasets/md/.gitkeep
+datasets/docx/*
+!datasets/docx/.gitkeep
+runs/evaluation/*
+!runs/evaluation/.gitkeep

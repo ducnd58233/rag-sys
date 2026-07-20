@@ -270,6 +270,7 @@ class DocumentSettings(BaseSettings):
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "image/jpeg",
                 "image/png",
+                "text/markdown",
             },
         ),
     )

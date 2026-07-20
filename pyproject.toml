@@ -54,10 +54,10 @@ src_paths = ["src"]
 markers = [
     "integration: tests that need Docker via testcontainers, excluded by default",
 ]
-# Scoped to tests/modules, not just marker-filtered: collecting
-# tests/integration at all imports testcontainers and its Docker client,
-# which costs real time even when every test in it is deselected.
-testpaths = ["tests/modules"]
+# Scoped to tests/modules and tests/evaluation, not just marker-filtered:
+# collecting tests/integration at all imports testcontainers and its Docker
+# client, which costs real time even when every test in it is deselected.
+testpaths = ["tests/modules", "tests/evaluation"]
 
 [dependency-groups]
 dev = [
@@ -76,6 +76,9 @@ migrate-down = 'alembic downgrade -1'
 migrate-down-all = 'alembic downgrade base'
 test = "pytest"
 test-integration = "pytest tests/integration -m integration"
+eval-download-corpus = "python scripts/evaluation/download_corpus.py"
+eval-index-corpus = "python scripts/evaluation/index_corpus.py"
+eval-dev = "python scripts/evaluation/run.py --split dev"
 
 [project.scripts]
 app = "src.app.api.main:run"
