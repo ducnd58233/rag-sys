@@ -22,6 +22,7 @@ from src.modules.ingestion import (
 from src.modules.ingestion.app.handlers.ingestion_requested import (
     IngestionRequestedHandler,
 )
+from src.modules.ingestion.app.ports import IVectorStore
 from src.modules.retrieval import RetrievalComponentFactory, RetrieveUseCase
 from src.shared.app.ports import IEmbeddingModel, IObjectStorage
 from src.shared.configs.logger import configure_logging
@@ -48,6 +49,7 @@ class AppContainer:
     create_document_upload: CreateDocumentUploadUrlUseCase
     complete_document_upload: CompleteDocumentUploadUseCase
     publish_ingestion_outbox_events: PublishIngestionOutboxEventsUseCase
+    vector_store: IVectorStore
     ingest_document: IngestDocumentUseCase
     request_ingestion: RequestIngestionUseCase
     ingestion_handler: IngestionRequestedHandler
@@ -55,6 +57,7 @@ class AppContainer:
     answer_question: AnswerQuestionUseCase
 
     async def startup(self) -> None:
+        await self.vector_store.create_index_if_not_exists()
         await self.kafka_publisher.start()
 
     async def shutdown(self) -> None:
@@ -141,6 +144,7 @@ def build_container(
         publish_ingestion_outbox_events=(
             document_components.publish_ingestion_outbox_events
         ),
+        vector_store=ingestion_components.vector_store,
         ingest_document=ingestion_components.ingest_document,
         request_ingestion=ingestion_components.request_ingestion,
         ingestion_handler=ingestion_components.ingestion_handler,

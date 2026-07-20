@@ -119,11 +119,7 @@ async def test_close_superseded_versions_sets_valid_to() -> None:
                     "filter": [
                         {"term": {"org_id": "7"}},
                         {"term": {"document_id": "11"}},
-                        {
-                            "range": {
-                                "valid_from": {"lt": "2026-07-10T00:00:00+00:00"}
-                            }
-                        },
+                        {"range": {"valid_from": {"lt": "2026-07-10T00:00:00+00:00"}}},
                     ],
                     "must_not": [
                         {"term": {"document_version_id": "102"}},

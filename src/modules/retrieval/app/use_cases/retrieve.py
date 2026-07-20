@@ -108,7 +108,7 @@ class RetrieveUseCase:
                     )
                 )
                 ranked = (
-                    tuple(ranked_lists[0])
+                    tuple(ranked_lists[0])[:top_k]
                     if len(ranked_lists) == 1
                     else self._rank_fusion.fuse(
                         ranked_lists,

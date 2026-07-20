@@ -138,6 +138,40 @@ async def test_retrieve_use_case_dispatches_through_hybrid_strategy() -> None:
     assert router.calls == [("query", filters, 2)]
 
 
+@pytest.mark.asyncio
+async def test_retrieve_use_case_limits_single_strategy_results_to_top_k() -> None:
+    settings = RetrievalSettings(top_k=2, num_candidates=10)
+    filters = RetrievalFilter(org_id=1)
+    lexical_searcher = FakeLexicalSearcher(
+        (
+            _hit("a", score=3.0),
+            _hit("b", score=2.0),
+            _hit("c", score=1.0),
+        )
+    )
+    lexical = LexicalStrategy(lexical_searcher, settings)
+    rank_fusion = ReciprocalRankFusion(rank_constant=settings.rank_constant)
+    plan = RetrievalPlan.single(
+        strategy="lexical",
+        top_k=2,
+        router_kind=RouterKind.RULE,
+        reason="test",
+    )
+    use_case = RetrieveUseCase(
+        settings,
+        FakeRouter(plan),
+        RetrievalStrategyRegistry((lexical,)),
+        rank_fusion,
+    )
+
+    result = await use_case.execute(
+        RetrieveRequest(query="query", top_k=2, filters=filters)
+    )
+
+    assert lexical_searcher.calls == [("query", 10, filters)]
+    assert [item.chunk_id for item in result.items] == ["a", "b"]
+
+
 def test_strategy_registry_selects_supported_strategies() -> None:
     settings = RetrievalSettings()
     lexical = LexicalStrategy(FakeLexicalSearcher(()), settings)

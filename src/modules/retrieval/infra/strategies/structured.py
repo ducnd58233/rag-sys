@@ -70,7 +70,7 @@ def _query(
     fields: Sequence[str],
 ) -> dict[str, object]:
     if filters.document_id is not None or filters.document_version_id is not None:
-        must: list[dict[str, object]] = [{"match_all": {}}]
+        must: list[dict[str, object]] = [_content_query(query)]
     else:
         must = [
             {
@@ -84,6 +84,17 @@ def _query(
         "bool": {
             "must": must,
             "filter": build_filter_clauses(filters),
+        }
+    }
+
+
+def _content_query(query: str) -> dict[str, object]:
+    return {
+        "match": {
+            "content": {
+                "query": query,
+                "minimum_should_match": "70%",
+            }
         }
     }
 

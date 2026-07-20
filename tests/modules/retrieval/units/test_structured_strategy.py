@@ -71,7 +71,7 @@ class FakeDenseSearcher:
 
 
 @pytest.mark.asyncio
-async def test_structured_strategy_queries_explicit_filters_without_embedding() -> None:
+async def test_structured_strategy_queries_document_scope_with_query_text() -> None:
     elasticsearch = FakeElasticsearch((_es_hit("deploy-1832"),))
     strategy = StructuredStrategy(
         elasticsearch,
@@ -95,7 +95,16 @@ async def test_structured_strategy_queries_explicit_filters_without_embedding() 
     query = search["query"]
     assert search["index"] == "test-index"
     assert search["size"] == 3
-    assert query["bool"]["must"] == [{"match_all": {}}]
+    assert query["bool"]["must"] == [
+        {
+            "match": {
+                "content": {
+                    "query": "deploy-1832",
+                    "minimum_should_match": "70%",
+                }
+            }
+        }
+    ]
     assert {"term": {"org_id": "1"}} in query["bool"]["filter"]
     assert {"term": {"document_id": "42"}} in query["bool"]["filter"]
     assert [hit.chunk_id for hit in result] == ["deploy-1832"]

@@ -6,6 +6,7 @@ from src.modules.document.app.ports import IDocumentUnitOfWork
 from src.modules.ingestion.app.handlers.ingestion_requested import (
     IngestionRequestedHandler,
 )
+from src.modules.ingestion.app.ports import IVectorStore
 from src.modules.ingestion.app.use_cases.ingest_document import IngestDocumentUseCase
 from src.modules.ingestion.app.use_cases.request_ingestion import (
     RequestIngestionUseCase,
@@ -31,6 +32,7 @@ __all__ = [
 
 @dataclass(frozen=True, slots=True)
 class IngestionComponents:
+    vector_store: IVectorStore
     ingest_document: IngestDocumentUseCase
     request_ingestion: RequestIngestionUseCase
     ingestion_handler: IngestionRequestedHandler
@@ -48,6 +50,11 @@ class IngestionComponentFactory:
         id_generator: IIdGenerator,
     ) -> IngestionComponents:
         ingestion = settings.ingestion
+        vector_store = ElasticsearchVectorStore(
+            elasticsearch=elasticsearch,
+            elasticsearch_settings=settings.elasticsearch,
+            embedding_settings=settings.embedding,
+        )
 
         ingest_document = IngestDocumentUseCase(
             doc_uow=document_uow,
@@ -57,14 +64,11 @@ class IngestionComponentFactory:
             ),
             processor=DocumentProcessorFactory.create(ingestion),
             embedder=embedder,
-            vector_store=ElasticsearchVectorStore(
-                elasticsearch=elasticsearch,
-                elasticsearch_settings=settings.elasticsearch,
-                embedding_settings=settings.embedding,
-            ),
+            vector_store=vector_store,
         )
 
         return IngestionComponents(
+            vector_store=vector_store,
             ingest_document=ingest_document,
             request_ingestion=RequestIngestionUseCase(
                 doc_uow=document_uow,
