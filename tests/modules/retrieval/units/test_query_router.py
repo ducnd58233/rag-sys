@@ -75,7 +75,10 @@ async def test_rule_router_routes_temporal_and_relationship_queries() -> None:
     assert temporal is not None
     assert [strategy.name for strategy in temporal.strategies] == ["temporal", "hybrid"]
     assert relationship is not None
-    assert [strategy.name for strategy in relationship.strategies] == ["graph", "hybrid"]
+    assert [strategy.name for strategy in relationship.strategies] == [
+        "graph",
+        "hybrid",
+    ]
 
 
 @pytest.mark.asyncio
@@ -92,8 +95,12 @@ async def test_rule_router_falls_through_without_rule_match() -> None:
 
 
 @pytest.mark.asyncio
-async def test_composite_router_caps_rule_strategies_and_uses_default_fallback() -> None:
-    settings = _routing_settings(max_concurrent_strategies=1, default_strategy="lexical")
+async def test_composite_router_caps_rule_strategies_and_uses_default_fallback() -> (
+    None
+):
+    settings = _routing_settings(
+        max_concurrent_strategies=1, default_strategy="lexical"
+    )
     router = CompositeQueryRouter(settings, RuleRouter(settings))
 
     rule_plan = await router.route(

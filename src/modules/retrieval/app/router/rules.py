@@ -3,7 +3,11 @@ from __future__ import annotations
 import re
 
 from src.modules.retrieval.app.dto import RetrievalFilter
-from src.modules.retrieval.domain.plan import RetrievalPlan, RouterKind, StrategySelection
+from src.modules.retrieval.domain.plan import (
+    RetrievalPlan,
+    RouterKind,
+    StrategySelection,
+)
 from src.shared.configs.settings import RoutingSettings
 
 

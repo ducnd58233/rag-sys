@@ -59,7 +59,9 @@ class StructuredStrategy(IRetrievalStrategy):
             )
         except Exception as e:
             raise RetrievalInternalError(f"structured search failed: {e}") from e
-        return tuple(_hit_chunk(hit) for hit in response.get("hits", {}).get("hits", []))
+        return tuple(
+            _hit_chunk(hit) for hit in response.get("hits", {}).get("hits", [])
+        )
 
 
 def _query(
