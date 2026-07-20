@@ -210,7 +210,6 @@ async def test_related_evidence_traverses_two_hops_with_correct_chunk_ids(
     payment = f"Payment-{unique_id}"
     db_pool = f"DatabasePool-{unique_id}"
 
-    # Checkout -> Payment -> DatabasePool, a genuine 2-hop chain.
     await store.upsert(
         source=_source(
             org_id=org_id, document_id=unique_id + 1, document_version_id=unique_id + 2
@@ -344,3 +343,77 @@ async def test_related_evidence_excludes_versions_past_their_valid_to(
     )
 
     assert evidence == ()
+
+
+@pytest.mark.asyncio
+async def test_related_evidence_excludes_chunk_ids_from_a_since_superseded_version(
+    graphdb: Neo4jGraphDb,
+    unique_id: int,
+) -> None:
+    """The RELATED edge is global per org and accumulates chunk_ids across
+    every ingestion that ever asserted the relationship (proven by
+    test_upsert_accumulates_chunk_ids_across_separate_ingestions above).
+    If one of those contributing document versions is later superseded,
+    its chunk_ids must not keep coming back as live evidence forever
+    just because some other, unrelated, still-valid document also
+    mentions the target entity. Each chunk_id's own contributing version
+    must be checked, not only the final entity's most recent mention."""
+    org_id = unique_id
+    store = Neo4jDocumentGraphStore(graphdb)
+    searcher = Neo4jGraphSearcher(graphdb)
+    checkout = f"Checkout-{unique_id}"
+    payment = f"Payment-{unique_id}"
+
+    await store.upsert(
+        source=_source(
+            org_id=org_id,
+            document_id=unique_id + 1,
+            document_version_id=unique_id + 2,
+        ),
+        graph=DocumentGraph(
+            entities=(
+                GraphEntity(name=checkout, kind="service", chunk_ids=("fresh-chunk",)),
+                GraphEntity(name=payment, kind="service", chunk_ids=("fresh-chunk",)),
+            ),
+            relations=(
+                GraphRelation(
+                    source=checkout,
+                    target=payment,
+                    kind="depends_on",
+                    chunk_ids=("fresh-chunk",),
+                ),
+            ),
+        ),
+    )
+    await store.upsert(
+        source=_source(
+            org_id=org_id,
+            document_id=unique_id + 3,
+            document_version_id=unique_id + 4,
+            valid_from=datetime.now(timezone.utc) - timedelta(days=30),
+            valid_to=datetime.now(timezone.utc) - timedelta(days=1),
+        ),
+        graph=DocumentGraph(
+            entities=(
+                GraphEntity(name=checkout, kind="service", chunk_ids=("stale-chunk",)),
+                GraphEntity(name=payment, kind="service", chunk_ids=("stale-chunk",)),
+            ),
+            relations=(
+                GraphRelation(
+                    source=checkout,
+                    target=payment,
+                    kind="depends_on",
+                    chunk_ids=("stale-chunk",),
+                ),
+            ),
+        ),
+    )
+
+    evidence = await searcher.related_evidence(
+        org_id=org_id, entities=(checkout,), max_hops=1, limit=10
+    )
+
+    by_related = {item.related_entity: item for item in evidence}
+    assert payment in by_related
+    assert "fresh-chunk" in by_related[payment].chunk_ids
+    assert "stale-chunk" not in by_related[payment].chunk_ids

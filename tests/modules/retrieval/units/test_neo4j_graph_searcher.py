@@ -75,6 +75,7 @@ async def test_graph_searcher_filters_org_and_caps_hops_in_cypher() -> None:
     assert "anchor.org_id = $org_id" in graphdb.statement
     assert "version.org_id = $org_id" in graphdb.statement
     assert "RELATED*0..3" in graphdb.statement
+    assert "rel.chunk_document_version_ids" in graphdb.statement
 
 
 @pytest.mark.asyncio

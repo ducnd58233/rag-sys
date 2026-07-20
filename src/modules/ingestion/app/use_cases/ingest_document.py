@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import logging
-import time
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager
 
 from opentelemetry import trace
+from opentelemetry.trace import Span
 
 from src.modules.document.app.ports import IDocumentUnitOfWork
 from src.modules.document.domain.models import (
@@ -37,6 +36,7 @@ from src.shared.observability.metrics import (
     ingestion_document_size,
     ingestion_step_duration,
 )
+from src.shared.observability.tracing import traced
 
 logger = logging.getLogger(__name__)
 _tracer = trace.get_tracer(__name__)
@@ -173,21 +173,13 @@ class IngestDocumentUseCase:
             status=IngestionStatus.COMPLETED,
         )
 
-    @asynccontextmanager
-    async def _step(self, name: str) -> AsyncIterator[None]:
-        started_at = time.perf_counter()
-        outcome = "success"
-        with _tracer.start_as_current_span(f"ingestion.{name}"):
-            try:
-                yield
-            except Exception:
-                outcome = "failed"
-                raise
-            finally:
-                ingestion_step_duration.record(
-                    time.perf_counter() - started_at,
-                    {"step": name, "outcome": outcome},
-                )
+    def _step(self, name: str) -> AbstractAsyncContextManager[Span]:
+        return traced(
+            _tracer,
+            f"ingestion.{name}",
+            duration_metric=ingestion_step_duration,
+            metric_attributes={"step": name},
+        )
 
     async def _load_source_and_mark_parsing(
         self,

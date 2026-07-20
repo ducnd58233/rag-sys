@@ -99,6 +99,7 @@ async def test_graph_store_writes_chunk_ids_on_mentions_and_related_edges() -> N
         }
     ]
     assert "edge.chunk_ids" in relation_statement
+    assert "edge.chunk_document_version_ids" in relation_statement
     assert "reduce(" in relation_statement
 
 

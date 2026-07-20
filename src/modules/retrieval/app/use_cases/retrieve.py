@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from collections.abc import Sequence
 
 from opentelemetry import trace
@@ -32,6 +31,7 @@ from src.shared.observability.metrics import (
     retrieval_strategy_duration,
     retrieval_strategy_results,
 )
+from src.shared.observability.tracing import traced
 
 logger = logging.getLogger(__name__)
 _tracer = trace.get_tracer(__name__)
@@ -163,42 +163,32 @@ async def _retrieve_with_metrics(
     plan: RetrievalPlan,
     filters: RetrievalFilter,
 ) -> Sequence[HitChunk]:
-    started_at = time.perf_counter()
-    outcome = "success"
-    attributes = {
+    metric_attributes = {
         "strategy": strategy.name,
         "router.kind": plan.router_kind.value,
     }
-    with _tracer.start_as_current_span(
+    async with traced(
+        _tracer,
         f"retrieval.strategy.{strategy.name}",
         attributes={
             "rag.router.kind": plan.router_kind.value,
             "rag.router.confidence": plan.confidence,
             "rag.retrieval.strategy": strategy.name,
         },
+        duration_metric=retrieval_strategy_duration,
+        metric_attributes=metric_attributes,
     ) as span:
-        try:
-            hits = await strategy.retrieve(
-                query,
-                plan=plan,
-                filters=filters,
-            )
-            span.set_attribute("rag.retrieval.results", len(hits))
-            return hits
-        except Exception as error:
-            outcome = "failure"
-            span.set_status(Status(StatusCode.ERROR, error.__class__.__name__))
-            raise
-        finally:
-            duration = time.perf_counter() - started_at
-            span.set_attribute("rag.retrieval.duration", duration)
-            metric_attributes = {**attributes, "outcome": outcome}
-            retrieval_strategy_duration.record(
-                duration,
-                metric_attributes,
-            )
-            if outcome == "success":
-                retrieval_strategy_results.record(len(hits), metric_attributes)
+        hits = await strategy.retrieve(
+            query,
+            plan=plan,
+            filters=filters,
+        )
+        span.set_attribute("rag.retrieval.results", len(hits))
+        retrieval_strategy_results.record(
+            len(hits),
+            {**metric_attributes, "outcome": "success"},
+        )
+        return hits
 
 
 def _strategy_weights(

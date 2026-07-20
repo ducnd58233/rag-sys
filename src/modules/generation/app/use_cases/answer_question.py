@@ -34,10 +34,16 @@ from src.shared.observability.metrics import (
     generation_query_analysis_duration,
     generation_retrieval_query_duration,
 )
+from src.shared.observability.tracing import traced
 
 logger = logging.getLogger(__name__)
 _tracer = trace.get_tracer(__name__)
-_FORMULA_MARKERS = ("=", "\\frac", "\\sum", "\\prod", "^", "_")
+_FORMULA_MARKERS = (
+    "=", "\\frac", "\\sum", "\\prod", "^", "_", "\\sqrt", "\\exp", "\\ln", "\\log", 
+    "\\sin", "\\cos", "\\tan", "\\cot", "\\sec", "\\csc", "\\sinh", "\\cosh", "\\tanh", 
+    "\\coth", "\\sech", "\\csch", "\\arcsin", "\\arccos", "\\arctan", "\\arccot", "\\arcsec", "\\arccsc", "\\arcsinh", "\\arccosh", "\\arctanh", "\\arccoth", "\\arcsech", "\\arccsch",
+    "\\lim", "\\inf", "\\sup", "\\min", "\\max", "\\inf", "\\sup", "\\min", "\\max",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -399,40 +405,31 @@ class AnswerQuestionUseCase:
         document_version_id: int | None,
         as_of: datetime | None,
     ) -> RetrievedContextSet:
-        started_at = time.perf_counter()
-        outcome = "success"
-        with _tracer.start_as_current_span(
+        async with traced(
+            _tracer,
             f"generation.retrieve.{query_kind}",
             attributes={
                 "rag.retrieval.query_kind": query_kind,
                 "rag.retrieval.top_k": top_k,
             },
+            duration_metric=generation_retrieval_query_duration,
+            metric_attributes={"query_kind": query_kind},
         ) as span:
-            try:
-                contexts = await self._retriever.retrieve(
-                    query,
-                    org_id=org_id,
-                    top_k=top_k,
-                    document_id=document_id,
-                    document_version_id=document_version_id,
-                    as_of=as_of,
-                )
-                span.set_attribute("rag.context.count", len(contexts))
-                return RetrievedContextSet(
-                    query=query,
-                    query_kind=query_kind,
-                    contexts=contexts,
-                    intent_index=intent_index,
-                )
-            except Exception as error:
-                outcome = "failure"
-                span.set_status(Status(StatusCode.ERROR, error.__class__.__name__))
-                raise
-            finally:
-                generation_retrieval_query_duration.record(
-                    time.perf_counter() - started_at,
-                    {"query_kind": query_kind, "outcome": outcome},
-                )
+            contexts = await self._retriever.retrieve(
+                query,
+                org_id=org_id,
+                top_k=top_k,
+                document_id=document_id,
+                document_version_id=document_version_id,
+                as_of=as_of,
+            )
+            span.set_attribute("rag.context.count", len(contexts))
+            return RetrievedContextSet(
+                query=query,
+                query_kind=query_kind,
+                contexts=contexts,
+                intent_index=intent_index,
+            )
 
     async def _answer_complex_intents(
         self,
@@ -516,7 +513,8 @@ class AnswerQuestionUseCase:
             query=query,
             contexts=math_contexts,
         )
-        with _tracer.start_as_current_span(
+        async with traced(
+            _tracer,
             "generation.answer_intent",
             attributes={
                 "rag.query.intent_index": intent_index,
@@ -561,7 +559,8 @@ class AnswerQuestionUseCase:
         draft_answer: str,
         sub_questions: Sequence[str],
     ) -> str:
-        with _tracer.start_as_current_span(
+        async with traced(
+            _tracer,
             "generation.refine_complex_answer",
             attributes={
                 "rag.context.count": len(contexts),
@@ -591,7 +590,8 @@ class AnswerQuestionUseCase:
         query: str,
         contexts: Sequence[ContextChunk],
     ) -> str:
-        with _tracer.start_as_current_span(
+        async with traced(
+            _tracer,
             "generation.extract_math_evidence",
             attributes={"rag.context.count": len(contexts)},
         ):
@@ -605,7 +605,8 @@ class AnswerQuestionUseCase:
         answer = result.content.strip()
         if not answer or answer.upper().rstrip(".") == "NO_MATH_EVIDENCE":
             return ""
-        with _tracer.start_as_current_span(
+        async with traced(
+            _tracer,
             "generation.verify_math_evidence",
             attributes={"rag.context.count": len(contexts)},
         ):
