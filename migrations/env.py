@@ -23,7 +23,7 @@ def run_migrations_offline() -> None:
     context.configure(
         url=database_url(),
         literal_binds=True,
-        dialect_opts={'paramstyle': 'named'},
+        dialect_opts={"paramstyle": "named"},
         compare_type=False,
         target_metadata=None,
     )
@@ -45,11 +45,11 @@ def run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     section = config.get_section(config.config_ini_section) or {}
-    section['sqlalchemy.url'] = database_url()
+    section["sqlalchemy.url"] = database_url()
 
     engine = async_engine_from_config(
         section,
-        prefix='sqlalchemy.',
+        prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 

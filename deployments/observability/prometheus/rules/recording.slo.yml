@@ -94,8 +94,35 @@ groups:
         expr: |
           histogram_quantile(
             0.95,
-            sum by (le, outcome) (
+            sum by (le, outcome, strategy) (
               rate(rag_generation_ask_duration_seconds_bucket[5m])
+            )
+          )
+
+      - record: slo:generation_query_analysis_duration:p95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, outcome) (
+              rate(rag_generation_query_analysis_duration_seconds_bucket[5m])
+            )
+          )
+
+      - record: slo:generation_retrieval_query_duration:p95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, query_kind, outcome) (
+              rate(rag_generation_retrieval_query_duration_seconds_bucket[5m])
+            )
+          )
+
+      - record: slo:generation_context_merge_duration:p95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, strategy) (
+              rate(rag_generation_context_merge_duration_seconds_bucket[5m])
             )
           )
 

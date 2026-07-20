@@ -12,21 +12,21 @@
       "id": 1, "title": "Ask request rate by outcome", "type": "timeseries",
       "gridPos": { "h": 7, "w": 8, "x": 0, "y": 0 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (outcome) (rate(rag_generation_ask_responses_total[5m]))", "legendFormat": "{{outcome}}" }],
+      "targets": [{ "expr": "sum by (outcome, strategy) (rate(rag_generation_ask_responses_total[5m]))", "legendFormat": "{{strategy}} {{outcome}}" }],
       "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
     },
     {
       "id": 2, "title": "Ask p95 duration", "type": "timeseries",
       "gridPos": { "h": 7, "w": 8, "x": 8, "y": 0 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "slo:generation_ask_duration:p95", "legendFormat": "{{outcome}}" }],
+      "targets": [{ "expr": "slo:generation_ask_duration:p95", "legendFormat": "{{strategy}} {{outcome}}" }],
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
     },
     {
       "id": 3, "title": "Ask refusal ratio", "type": "timeseries",
       "gridPos": { "h": 7, "w": 8, "x": 16, "y": 0 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum(rate(rag_generation_ask_responses_total{outcome=~\"refused_.*\"}[5m])) / sum(rate(rag_generation_ask_responses_total[5m]))", "legendFormat": "refused" }],
+      "targets": [{ "expr": "sum by (strategy) (rate(rag_generation_ask_responses_total{outcome=~\"refused_.*\"}[5m])) / sum by (strategy) (rate(rag_generation_ask_responses_total[5m]))", "legendFormat": "{{strategy}}" }],
       "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
     },
     {
@@ -64,22 +64,50 @@
       "id": 8, "title": "Citations per answered ask", "type": "timeseries",
       "gridPos": { "h": 7, "w": 12, "x": 0, "y": 21 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum(rate(rag_generation_ask_citations_sum{outcome=\"answered\"}[5m])) / sum(rate(rag_generation_ask_citations_count{outcome=\"answered\"}[5m]))", "legendFormat": "citations / answered ask" }],
+      "targets": [{ "expr": "sum by (strategy) (rate(rag_generation_ask_citations_sum{outcome=\"answered\"}[5m])) / sum by (strategy) (rate(rag_generation_ask_citations_count{outcome=\"answered\"}[5m]))", "legendFormat": "{{strategy}}" }],
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
     },
     {
       "id": 9, "title": "LLM and ask traces", "type": "traces",
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 21 },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 28 },
       "datasource": { "type": "tempo", "uid": "tempo" },
       "targets": [
         {
           "refId": "A",
-          "query": "{ name =~ \"generation.ask|chat .*|embeddings .*\" }",
+          "query": "{ name =~ \"generation.ask|generation.query_analysis|generation.retrieve.*|generation.context_merge|generation.answer_synthesis|chat .*|embeddings .*\" }",
           "queryType": "traceql",
           "limit": 20,
           "tableType": "traces"
         }
       ]
+    },
+    {
+      "id": 10, "title": "Retrieval query p95 latency", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 28 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "slo:generation_retrieval_query_duration:p95", "legendFormat": "{{query_kind}} {{outcome}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 11, "title": "Retrieval queries per ask", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 35 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (strategy) (rate(rag_generation_ask_retrieval_queries_sum[5m])) / sum by (strategy) (rate(rag_generation_ask_retrieval_queries_count[5m]))", "legendFormat": "{{strategy}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 12, "title": "Contexts per ask", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 35 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (strategy) (rate(rag_generation_ask_contexts_sum[5m])) / sum by (strategy) (rate(rag_generation_ask_contexts_count[5m]))", "legendFormat": "{{strategy}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 13, "title": "Sub-questions per ask", "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 35 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum by (strategy) (rate(rag_generation_ask_subquestions_sum[5m])) / sum by (strategy) (rate(rag_generation_ask_subquestions_count[5m]))", "legendFormat": "{{strategy}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
     }
   ]
 }

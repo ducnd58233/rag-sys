@@ -30,6 +30,7 @@ After starting the API with `uv run app` or `uv run dev`, open:
 - Prometheus: http://localhost:9090
 - Tempo: http://localhost:3200
 - Kafka UI (Kafbat): http://localhost:8082
+- Langfuse LLM analytics: http://localhost:3002
 
 ## File size / SHA-256 for the upload API
 

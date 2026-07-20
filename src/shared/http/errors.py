@@ -5,8 +5,8 @@ from http import HTTPStatus
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-
 from pydantic import BaseModel, Field
+
 from src.shared.http.middlewares import REQUEST_ID_HEADER
 from src.shared.kernel.errors import DomainException, ErrorCode
 
@@ -24,11 +24,13 @@ __all__ = [
     "register_exception_handlers",
 ]
 
+
 class ErrorResponse(BaseModel):
     message: str
     details: dict[str, str] = Field(default_factory=dict)
     request_id: str | None = None
-    
+
+
 class AppError(Exception):
     code: str = ErrorCode.INTERNAL.value
     status: int = HTTPStatus.INTERNAL_SERVER_ERROR

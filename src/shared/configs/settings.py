@@ -109,6 +109,11 @@ class ChatSettings(BaseSettings):
     max_tokens: int = Field(default=1024, ge=1)
     timeout_seconds: float = Field(default=120.0, ge=0)
     top_k: int = Field(default=8, ge=1, le=100)
+    complex_rag_enabled: bool = Field(default=True)
+    complex_rag_max_retrieval_queries: int = Field(default=20, ge=1, le=50)
+    complex_rag_per_query_top_k: int = Field(default=6, ge=1, le=50)
+    complex_rag_final_top_k: int = Field(default=12, ge=1, le=100)
+    complex_rag_max_iterations: int = Field(default=2, ge=1, le=3)
 
 
 class IngestionSettings(BaseSettings):

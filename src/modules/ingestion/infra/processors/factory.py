@@ -1,11 +1,17 @@
 from src.modules.ingestion.app.ports import IDocumentProcessor
 from src.modules.ingestion.domain.errors import IngestionValidationError
 from src.modules.ingestion.infra.configs import ByTitleChunkingConfig
-from src.modules.ingestion.infra.processors.unstructured.config import UnstructuredPartitionConfig, UnstructuredProcessorRuntimeConfig
-from src.modules.ingestion.infra.processors.unstructured.processor import UnstructuredDocumentProcessor
+from src.modules.ingestion.infra.processors.unstructured.config import (
+    UnstructuredPartitionConfig,
+    UnstructuredProcessorRuntimeConfig,
+)
+from src.modules.ingestion.infra.processors.unstructured.processor import (
+    UnstructuredDocumentProcessor,
+)
 from src.shared.configs.settings import IngestionSettings
 
 SUPPORTED_PROCESSORS = ("unstructured",)
+
 
 class DocumentProcessorFactory:
     @staticmethod

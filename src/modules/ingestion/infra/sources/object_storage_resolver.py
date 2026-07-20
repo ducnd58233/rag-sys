@@ -1,20 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import tempfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-import hashlib
-import tempfile
 
 from src.modules.ingestion.domain.errors import (
     IngestionInternalError,
     IngestionValidationError,
 )
-from src.modules.ingestion.domain.models import (
-    DocumentSource,
-    DocumentVersionSource,
-)
+from src.modules.ingestion.domain.models import DocumentSource, DocumentVersionSource
 from src.shared.app.ports import IObjectStorage
 from src.shared.app.ports.object_storage import StorageBucket
 from src.shared.infra.object_storage import ObjectStorageError
@@ -38,18 +35,18 @@ class ObjectStorageSourceResolver:
             bucket = StorageBucket(source.bucket)
         except ValueError as error:
             raise IngestionValidationError(
-                message=f'Unsupported storage bucket: {source.bucket}',
+                message=f"Unsupported storage bucket: {source.bucket}",
             ) from error
 
         filename = Path(source.filename).name
         if not filename:
             raise IngestionValidationError(
-                message='Document filename cannot be empty',
+                message="Document filename cannot be empty",
             )
 
         if source.size_bytes > self._max_file_size_bytes:
             raise IngestionValidationError(
-                message='Document exceeds maximum ingestion size',
+                message="Document exceeds maximum ingestion size",
             )
 
         try:
@@ -60,11 +57,11 @@ class ObjectStorageSourceResolver:
 
             if stored.size_bytes != source.size_bytes:
                 raise IngestionValidationError(
-                    message='Stored object size does not match database metadata',
+                    message="Stored object size does not match database metadata",
                 )
 
             with tempfile.TemporaryDirectory(
-                prefix='rag-ingestion-',
+                prefix="rag-ingestion-",
             ) as directory:
                 local_path = Path(directory) / filename
 
@@ -78,7 +75,7 @@ class ObjectStorageSourceResolver:
                     checksum = await self._sha256(local_path)
                     if checksum != source.checksum_sha256.lower():
                         raise IngestionValidationError(
-                            message='Stored object checksum does not match',
+                            message="Stored object checksum does not match",
                         )
 
                 yield DocumentSource(
@@ -86,15 +83,13 @@ class ObjectStorageSourceResolver:
                     version_no=source.version_no,
                     filename=filename,
                     mime_type=source.mime_type,
-                    source_uri=(
-                        f's3://{bucket.value}/{source.object_key}'
-                    ),
+                    source_uri=(f"s3://{bucket.value}/{source.object_key}"),
                     local_path=local_path,
                 )
 
         except ObjectStorageError as error:
             raise IngestionInternalError(
-                message='Could not read document from object storage',
+                message="Could not read document from object storage",
             ) from error
 
     async def _sha256(self, path: Path) -> str:
@@ -102,7 +97,7 @@ class ObjectStorageSourceResolver:
 
     def _sha256_sync(self, path: Path) -> str:
         digest = hashlib.sha256()
-        with path.open('rb') as file:
-            for block in iter(lambda: file.read(1024 * 1024), b''):
+        with path.open("rb") as file:
+            for block in iter(lambda: file.read(1024 * 1024), b""):
                 digest.update(block)
         return digest.hexdigest()
