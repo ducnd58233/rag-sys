@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from src.modules.retrieval.app.dto import RetrievalFilter
 
 
@@ -21,7 +23,32 @@ def build_filter_clauses(
                 },
             },
         )
+    else:
+        clauses.extend(_validity_clauses(filters.as_of))
     return clauses
+
+
+def _validity_clauses(as_of: datetime | None) -> list[dict[str, object]]:
+    effective_at = as_of or datetime.now(timezone.utc)
+    value = effective_at.astimezone(timezone.utc).isoformat()
+    return [
+        {"range": {"valid_from": {"lte": value}}},
+        {
+            "bool": {
+                "should": [
+                    {
+                        "bool": {
+                            "must_not": [
+                                {"exists": {"field": "valid_to"}},
+                            ],
+                        }
+                    },
+                    {"range": {"valid_to": {"gt": value}}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    ]
 
 
 def _metadata_as_str_map(raw: object) -> dict[str, str]:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
 from src.modules.document.app.dto import CreateUploadUrlRequest, CreateUploadUrlResult
 from src.modules.document.app.ports import IDocumentUnitOfWork
@@ -54,6 +55,7 @@ class CreateDocumentUploadUrlUseCase:
         document_version_id = self._id_generator.next_id()
         stored_object_id = self._id_generator.next_id()
         version_no = 1
+        created_at = datetime.now(timezone.utc)
 
         object_key = (
             f"org/{request.org_id}/document/{document_id}/v{version_no}/"
@@ -100,6 +102,9 @@ class CreateDocumentUploadUrlUseCase:
                     uploaded_by=request.user_id,
                     doc_type=None,
                     doc_type_confidence=None,
+                    created_at=created_at,
+                    valid_from=None,
+                    superseded_at=None,
                 ),
             )
 

@@ -120,9 +120,15 @@ class IngestDocumentUseCase:
 
                 async with self._step("index"):
                     await self._vector_store.create_index_if_not_exists()
-                    await self._vector_store.delete_by_document_id(
+                    await self._vector_store.close_superseded_versions(
                         org_id=source.org_id,
                         document_id=source.document_id,
+                        active_document_version_id=source.document_version_id,
+                        valid_to=source.valid_from,
+                    )
+                    await self._vector_store.delete_by_document_version_id(
+                        org_id=source.org_id,
+                        document_version_id=source.document_version_id,
                     )
 
                     if chunks:
@@ -134,6 +140,8 @@ class IngestDocumentUseCase:
                             metadata=metadata,
                             chunks=chunks,
                             vectors=vectors,
+                            valid_from=source.valid_from,
+                            valid_to=source.valid_to,
                         )
 
                 await self._mark_indexed(request)
@@ -193,6 +201,11 @@ class IngestDocumentUseCase:
                     message="Document source is incomplete",
                 )
 
+            if version.valid_from is None:
+                raise IngestionConflictError(
+                    message="Document version is not active",
+                )
+
             if version.processing_status is DocumentProcessingStatus.INDEXED:
                 return self._build_source(
                     request,
@@ -240,6 +253,8 @@ class IngestDocumentUseCase:
             processing_status=processing_status,
             size_bytes=stored_object.size_bytes,
             checksum_sha256=stored_object.checksum_sha256,
+            valid_from=version.valid_from,
+            valid_to=version.superseded_at,
         )
 
     async def _mark_indexed(

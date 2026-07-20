@@ -32,6 +32,7 @@ async def search(
                 org_id=body.org_id,
                 document_id=body.document_id,
                 document_version_id=body.document_version_id,
+                as_of=body.as_of,
             ),
         ),
     )

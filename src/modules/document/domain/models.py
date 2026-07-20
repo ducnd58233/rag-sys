@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 
 
@@ -53,6 +54,9 @@ class DocumentVersionRecord:
     uploaded_by: int
     doc_type: str | None
     doc_type_confidence: float | None
+    created_at: datetime
+    valid_from: datetime | None
+    superseded_at: datetime | None
 
 
 class IngestionOutboxEventStatus(StrEnum):

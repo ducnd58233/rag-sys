@@ -26,6 +26,7 @@ async def ask(
             top_k=body.top_k,
             document_id=body.document_id,
             document_version_id=body.document_version_id,
+            as_of=body.as_of,
         ),
     )
     return AskResponse(

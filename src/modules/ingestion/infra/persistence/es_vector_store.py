@@ -35,6 +35,8 @@ class ElasticsearchVectorStore:
             "chunk_index": {"type": "integer"},
             "content": {"type": "text"},
             "metadata": {"type": "object", "enabled": True},
+            "valid_from": {"type": "date"},
+            "valid_to": {"type": "date"},
             "embedding": {
                 "type": "dense_vector",
                 "dims": self._dimensions,
@@ -49,6 +51,7 @@ class ElasticsearchVectorStore:
                 index=self._index,
                 properties=properties,
             )
+            await self._backfill_validity_fields()
             return
 
         await self._client.indices.create(
@@ -62,11 +65,11 @@ class ElasticsearchVectorStore:
             },
         )
 
-    async def delete_by_document_id(
+    async def delete_by_document_version_id(
         self,
         *,
         org_id: int,
-        document_id: DocumentId,
+        document_version_id: int,
     ) -> None:
         await self._client.delete_by_query(
             index=self._index,
@@ -76,11 +79,49 @@ class ElasticsearchVectorStore:
                         {"term": {"org_id": str(org_id)}},
                         {
                             "term": {
-                                "document_id": str(document_id.value),
+                                "document_version_id": str(document_version_id),
                             },
                         },
                     ],
                 },
+            },
+            conflicts="proceed",
+            refresh=True,
+        )
+
+    async def close_superseded_versions(
+        self,
+        *,
+        org_id: int,
+        document_id: DocumentId,
+        active_document_version_id: int,
+        valid_to: datetime,
+    ) -> None:
+        await self._client.update_by_query(
+            index=self._index,
+            query={
+                "bool": {
+                    "filter": [
+                        {"term": {"org_id": str(org_id)}},
+                        {"term": {"document_id": str(document_id.value)}},
+                        {"range": {"valid_from": {"lt": _datetime_value(valid_to)}}},
+                    ],
+                    "must_not": [
+                        {
+                            "term": {
+                                "document_version_id": str(
+                                    active_document_version_id,
+                                ),
+                            }
+                        },
+                        {"exists": {"field": "valid_to"}},
+                    ],
+                },
+            },
+            script={
+                "source": "ctx._source.valid_to = params.valid_to",
+                "lang": "painless",
+                "params": {"valid_to": _datetime_value(valid_to)},
             },
             conflicts="proceed",
             refresh=True,
@@ -96,8 +137,14 @@ class ElasticsearchVectorStore:
         metadata: dict[str, str],
         chunks: Sequence[Chunk],
         vectors: Sequence[Sequence[float]],
+        valid_from: datetime,
+        valid_to: datetime | None,
     ) -> None:
         indexed_at = datetime.now(timezone.utc)
+        serialized_valid_from = _datetime_value(valid_from)
+        serialized_valid_to = (
+            _datetime_value(valid_to) if valid_to is not None else None
+        )
         actions = [
             {
                 "_index": self._index,
@@ -111,6 +158,8 @@ class ElasticsearchVectorStore:
                     "chunk_index": chunk.index,
                     "content": chunk.content,
                     "metadata": {**metadata, **chunk.metadata},
+                    "valid_from": serialized_valid_from,
+                    "valid_to": serialized_valid_to,
                     "embedding": list(vector),
                     "indexed_at": indexed_at,
                 },
@@ -134,3 +183,24 @@ class ElasticsearchVectorStore:
             len(chunks),
             success_count,
         )
+
+    async def _backfill_validity_fields(self) -> None:
+        await self._client.update_by_query(
+            index=self._index,
+            query={
+                "bool": {
+                    "filter": [{"exists": {"field": "indexed_at"}}],
+                    "must_not": [{"exists": {"field": "valid_from"}}],
+                }
+            },
+            script={
+                "source": "ctx._source.valid_from = ctx._source.indexed_at",
+                "lang": "painless",
+            },
+            conflicts="proceed",
+            refresh=True,
+        )
+
+
+def _datetime_value(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat()

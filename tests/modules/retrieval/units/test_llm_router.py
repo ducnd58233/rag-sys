@@ -65,7 +65,9 @@ class SlowChatModel(FakeChatModel):
 
 
 @pytest.mark.asyncio
-async def test_llm_router_uses_structured_temperature_zero_and_caps_strategies() -> None:
+async def test_llm_router_uses_structured_temperature_zero_and_caps_strategies() -> (
+    None
+):
     chat = FakeChatModel(
         [
             {

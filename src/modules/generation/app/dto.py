@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -11,6 +12,7 @@ class AskRequest:
     top_k: int | None = None
     document_id: int | None = None
     document_version_id: int | None = None
+    as_of: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

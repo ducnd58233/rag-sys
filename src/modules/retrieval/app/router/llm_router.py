@@ -4,7 +4,11 @@ import asyncio
 
 from src.modules.retrieval.app.dto import RetrievalFilter
 from src.modules.retrieval.app.router.llm_schema import RouterPlanSchema
-from src.modules.retrieval.domain.plan import RetrievalPlan, RouterKind, StrategySelection
+from src.modules.retrieval.domain.plan import (
+    RetrievalPlan,
+    RouterKind,
+    StrategySelection,
+)
 from src.shared.app.ports import IChatModel
 from src.shared.configs.settings import RoutingSettings
 

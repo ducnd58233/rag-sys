@@ -5,6 +5,7 @@ import logging
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -137,6 +138,7 @@ class AnswerQuestionUseCase:
                     top_k=top_k,
                     document_id=request.document_id,
                     document_version_id=request.document_version_id,
+                    as_of=request.as_of,
                 )
                 span.set_attribute("rag.context.count", len(contexts))
                 supported_intent_indices = _supported_intent_indices(contexts)
@@ -291,6 +293,7 @@ class AnswerQuestionUseCase:
         top_k: int,
         document_id: int | None,
         document_version_id: int | None,
+        as_of: datetime | None,
     ) -> Sequence[ContextChunk]:
         if not query_plan.is_complex:
             retrieval_query = query_plan.rewritten_query or query
@@ -306,6 +309,7 @@ class AnswerQuestionUseCase:
                 top_k=top_k,
                 document_id=document_id,
                 document_version_id=document_version_id,
+                as_of=as_of,
             )
             generation_ask_contexts.record(
                 len(result_set.contexts),
@@ -347,6 +351,7 @@ class AnswerQuestionUseCase:
                     top_k=per_query_top_k,
                     document_id=document_id,
                     document_version_id=document_version_id,
+                    as_of=as_of,
                 )
                 for request in retrieval_requests
             ),
@@ -392,6 +397,7 @@ class AnswerQuestionUseCase:
         top_k: int,
         document_id: int | None,
         document_version_id: int | None,
+        as_of: datetime | None,
     ) -> RetrievedContextSet:
         started_at = time.perf_counter()
         outcome = "success"
@@ -409,6 +415,7 @@ class AnswerQuestionUseCase:
                     top_k=top_k,
                     document_id=document_id,
                     document_version_id=document_version_id,
+                    as_of=as_of,
                 )
                 span.set_attribute("rag.context.count", len(contexts))
                 return RetrievedContextSet(

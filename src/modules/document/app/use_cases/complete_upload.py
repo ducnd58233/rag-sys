@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
 from src.modules.document.app.dto import CompleteUploadRequest, CompleteUploadResult
 from src.modules.document.app.ports import IDocumentUnitOfWork
@@ -128,6 +129,7 @@ class CompleteDocumentUploadUseCase:
             )
 
         async with self._document_uow.begin() as transaction:
+            valid_from = datetime.now(timezone.utc)
             was_marked_available = await transaction.stored_objects.mark_available(
                 org_id=request.org_id,
                 stored_object_id=stored_object.id,
@@ -138,6 +140,22 @@ class CompleteDocumentUploadUseCase:
                 raise DocumentConflictError(
                     message="Upload completion state changed",
                 )
+
+            if (
+                document.current_version_id is not None
+                and document.current_version_id != version.id
+            ):
+                await transaction.document_versions.supersede(
+                    org_id=request.org_id,
+                    document_version_id=document.current_version_id,
+                    superseded_at=valid_from,
+                )
+
+            await transaction.document_versions.activate(
+                org_id=request.org_id,
+                document_version_id=version.id,
+                valid_from=valid_from,
+            )
 
             await transaction.documents.set_current_version(
                 org_id=request.org_id,

@@ -17,6 +17,7 @@ from src.modules.retrieval.infra.strategies import (
     LexicalStrategy,
     SemanticStrategy,
     StructuredStrategy,
+    TemporalStrategy,
 )
 from src.shared.app.ports import IChatModel, IEmbeddingModel
 from src.shared.configs.settings import Settings
@@ -53,6 +54,11 @@ class RetrievalComponentFactory:
         strategy_registry = RetrievalStrategyRegistry(
             (
                 StructuredStrategy(
+                    elasticsearch,
+                    settings.elasticsearch,
+                    settings.routing,
+                ),
+                TemporalStrategy(
                     elasticsearch,
                     settings.elasticsearch,
                     settings.routing,
