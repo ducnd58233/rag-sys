@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Sequence
 
 from src.modules.retrieval.app.dto import RetrievedItem, RetrieveRequest, RetrieveResult
+from src.modules.retrieval.app.ports import (
+    IQueryRouter,
+    IRankFusion,
+    IRetrievalStrategy,
+)
 from src.modules.retrieval.app.strategy_registry import RetrievalStrategyRegistry
 from src.modules.retrieval.domain.errors import (
     RetrievalInternalError,
@@ -20,10 +26,14 @@ class RetrieveUseCase:
     def __init__(
         self,
         retrieval_settings: RetrievalSettings,
+        query_router: IQueryRouter,
         strategy_registry: RetrievalStrategyRegistry,
+        rank_fusion: IRankFusion,
     ) -> None:
         self._retrieval_settings = retrieval_settings
+        self._query_router = query_router
         self._strategy_registry = strategy_registry
+        self._rank_fusion = rank_fusion
 
     async def execute(self, request: RetrieveRequest) -> RetrieveResult:
         query = request.query.strip()
@@ -42,15 +52,34 @@ class RetrieveUseCase:
         )
         if top_k < 1:
             raise RetrievalValidationError("top_k must be greater than 0")
-        plan = RetrievalPlan.hybrid(top_k=top_k, reason="hybrid_default")
+        plan = await self._query_router.route(
+            query,
+            filters=request.filters,
+            top_k=top_k,
+        )
 
         strategies = self._strategy_registry.select(plan)
         if not strategies:
             raise RetrievalInternalError("no retrieval strategy supports the plan")
-        ranked = await strategies[0].retrieve(
-            query,
-            plan=plan,
-            filters=request.filters,
+
+        ranked_lists = await asyncio.gather(
+            *(
+                strategy.retrieve(
+                    query,
+                    plan=plan,
+                    filters=request.filters,
+                )
+                for strategy in strategies
+            )
+        )
+        ranked = (
+            tuple(ranked_lists[0])
+            if len(ranked_lists) == 1
+            else self._rank_fusion.fuse(
+                ranked_lists,
+                top_k=top_k,
+                weights=_strategy_weights(plan, strategies),
+            )
         )
         accepted = self._apply_fused_score_gate(ranked)
 
@@ -86,3 +115,15 @@ class RetrieveUseCase:
         if threshold is None:
             return tuple(ranked)
         return tuple(hit for hit in ranked if hit.score >= threshold)
+
+
+def _strategy_weights(
+    plan: RetrievalPlan,
+    strategies: Sequence[IRetrievalStrategy],
+) -> tuple[float, ...]:
+    weights: list[float] = []
+    for strategy in strategies:
+        selection = plan.selection_for(strategy.name)
+        if selection is not None:
+            weights.append(selection.weight)
+    return tuple(weights)

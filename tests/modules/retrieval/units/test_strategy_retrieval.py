@@ -22,6 +22,22 @@ from src.modules.retrieval.infra.strategies import (
 from src.shared.configs.settings import RetrievalSettings
 
 
+class FakeRouter:
+    def __init__(self, plan: RetrievalPlan) -> None:
+        self.calls: list[tuple[str, RetrievalFilter, int]] = []
+        self._plan = plan
+
+    async def route(
+        self,
+        query: str,
+        *,
+        filters: RetrievalFilter,
+        top_k: int,
+    ) -> RetrievalPlan:
+        self.calls.append((query, filters, top_k))
+        return self._plan
+
+
 class FakeEmbedder:
     dimensions = 3
 
@@ -107,19 +123,19 @@ async def test_retrieve_use_case_dispatches_through_hybrid_strategy() -> None:
     registry = RetrievalStrategyRegistry(
         (HybridStrategy(lexical, semantic, rank_fusion), lexical, semantic)
     )
-    use_case = RetrieveUseCase(settings, registry)
+    plan = RetrievalPlan.hybrid(top_k=2, reason="test")
+    router = FakeRouter(plan)
+    use_case = RetrieveUseCase(settings, router, registry, rank_fusion)
 
     result = await use_case.execute(
         RetrieveRequest(query=" query ", top_k=2, filters=filters)
     )
 
     assert result.query == "query"
-    assert (
-        result.plan.to_dict()
-        == RetrievalPlan.hybrid(top_k=2, reason="hybrid_default").to_dict()
-    )
+    assert result.plan.to_dict() == plan.to_dict()
     assert [item.chunk_id for item in result.items] == ["a", "b"]
     assert embedder.calls == [["query"]]
+    assert router.calls == [("query", filters, 2)]
 
 
 def test_strategy_registry_selects_supported_strategies() -> None:

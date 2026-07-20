@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from src.modules.retrieval.app.router import CompositeQueryRouter, RuleRouter
 from src.modules.retrieval.app.strategy_registry import RetrievalStrategyRegistry
 from src.modules.retrieval.app.use_cases.retrieve import RetrieveUseCase
 from src.modules.retrieval.infra.elasticsearch.dense_searcher import (
@@ -15,6 +16,7 @@ from src.modules.retrieval.infra.strategies import (
     HybridStrategy,
     LexicalStrategy,
     SemanticStrategy,
+    StructuredStrategy,
 )
 from src.shared.app.ports import IEmbeddingModel
 from src.shared.configs.settings import Settings
@@ -49,14 +51,25 @@ class RetrievalComponentFactory:
         )
         strategy_registry = RetrievalStrategyRegistry(
             (
+                StructuredStrategy(
+                    elasticsearch,
+                    settings.elasticsearch,
+                    settings.routing,
+                ),
                 HybridStrategy(lexical_strategy, semantic_strategy, rank_fusion),
                 lexical_strategy,
                 semantic_strategy,
             )
         )
+        query_router = CompositeQueryRouter(
+            settings.routing,
+            RuleRouter(settings.routing),
+        )
         return RetrievalComponents(
             retrieve=RetrieveUseCase(
                 retrieval_settings=retrieval,
+                query_router=query_router,
                 strategy_registry=strategy_registry,
+                rank_fusion=rank_fusion,
             ),
         )

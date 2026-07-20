@@ -148,6 +148,40 @@ class RetrievalSettings(BaseSettings):
     min_fused_score: float | None = Field(default=None, ge=0.0)
 
 
+class RoutingSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="ROUTING_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    enabled: bool = Field(default=True)
+    default_strategy: str = Field(default="hybrid")
+    max_concurrent_strategies: int = Field(default=3, ge=1, le=6)
+    llm_router_enabled: bool = Field(default=False)
+    llm_router_timeout_seconds: float = Field(default=2.0, gt=0)
+    identifier_patterns: list[str] = Field(default_factory=lambda: [r"[a-z]+-\d{3,}"])
+    structured_fields: list[str] = Field(
+        default_factory=lambda: [
+            "chunk_id",
+            "document_id",
+            "document_version_id",
+            "metadata.filename",
+            "metadata.source",
+        ]
+    )
+    temporal_enabled: bool = Field(default=True)
+    temporal_recency_half_life_days: float = Field(default=90.0, gt=0)
+    temporal_terms: list[str] = Field(
+        default_factory=lambda: ["latest", "as of", "changed since", "version"]
+    )
+    graph_enabled: bool = Field(default=False)
+    graph_max_hops: int = Field(default=2, ge=1, le=4)
+    relationship_terms: list[str] = Field(
+        default_factory=lambda: ["caused", "related to", "depends on"]
+    )
+
+
 class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="DATABASE_",
@@ -247,6 +281,7 @@ class Settings(BaseSettings):
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     ingestion: IngestionSettings = Field(default_factory=IngestionSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
+    routing: RoutingSettings = Field(default_factory=RoutingSettings)
     chat: ChatSettings = Field(default_factory=ChatSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     object_storage: ObjectStorageSettings = Field(default_factory=ObjectStorageSettings)
