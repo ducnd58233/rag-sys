@@ -1,45 +1,45 @@
 # Observability stack
 
-Telemetry is split so you can **collect** metrics/traces continuously (cheap relative to
-Grafana/Langfuse UIs) and open dashboards later against the same Prometheus/Tempo volumes.
+Collect backends ship with the **base** Docker Compose stack
+(`deployments/docker/docker-compose.yml`): OTEL Collector → Tempo + Prometheus,
+plus Kafka JMX and cAdvisor scrapes. Config files and Grafana assets stay under
+this directory.
 
-| Layer | Compose file(s) | What it does |
-|-------|-----------------|--------------|
-| Collect | `docker-compose.observability.yml` | OTEL Collector → Tempo + Prometheus; JMX + cAdvisor scrapes |
-| Dashboards | `docker-compose.observability.ui.yml` | Grafana only (reads Prometheus/Tempo) |
-| LLM analytics | `docker-compose.langfuse.yml` + `docker-compose.observability.langfuse-export.yml` | Langfuse + optional second collector config that also exports traces to Langfuse |
+| Layer | Where | What it does |
+|-------|--------|--------------|
+| Collect | `make docker-up` (base compose) | Persist metrics/traces in named volumes |
+| Dashboards / UIs | `make docker-up-ui` | Kibana, Kafka UI, Grafana |
+| LLM analytics | `make obs-up-llm` | Langfuse + optional collector export overlay |
 
 ## Running
 
 ```bash
-make obs-up          # collect only (recommended default while developing)
-make obs-up-ui       # Grafana on top of collect (historical data already in volumes)
-make obs-up-core     # collect + Grafana (no Langfuse)
-make obs-up-llm      # collect + Langfuse (+ OTEL export to Langfuse)
-make obs-up-all      # collect + Grafana + Langfuse
+make docker-up       # app infra + OTEL collect (recommended default)
+make docker-up-ui    # Kibana + Kafka UI + Grafana (history already in volumes)
+make obs-up-llm      # Langfuse (+ OTEL export to Langfuse)
+make obs-up-all      # base + all UIs + Langfuse
 ```
 
 ```bash
-make obs-down-ui     # stop Grafana only; keep collecting
+make docker-down-ui  # stop Kibana / Kafka UI / Grafana; keep collecting
 make obs-down-llm    # stop Langfuse; collector falls back to Tempo/Prom only
-make obs-down-core   # stop collect + Grafana
-make obs-down        # stop collect + Grafana + Langfuse
-make obs-down-all    # same as obs-down
+make docker-down     # stop base (+ UI if it was composed in)
+make obs-down-all    # stop base + UI + Langfuse
 ```
 
-App processes still send OTLP to `http://localhost:4317` (`OTEL_EXPORTER_OTLP_ENDPOINT`).
-As long as `make obs-up` is running, spans land in Tempo and metrics in Prometheus even if
-Grafana is stopped. Start `make obs-up-ui` later to browse that history.
+App processes send OTLP to `http://localhost:4317` (`OTEL_EXPORTER_OTLP_ENDPOINT`).
+With `make docker-up`, spans land in Tempo and metrics in Prometheus even if Grafana
+is stopped. Start `make docker-up-ui` later to browse that history.
 
-Langfuse only stores LLM analytics while its stack is up (and the collector is started with
-the langfuse-export overlay via `obs-up-llm` / `obs-up-all`). Tempo/Prometheus history is
-**not** backfilled into Langfuse when you turn Langfuse on later.
+Langfuse only stores LLM analytics while its stack is up (collector started with
+`docker-compose.observability.langfuse-export.yml` via `obs-up-llm` / `obs-up-all`).
+Tempo/Prometheus history is **not** backfilled into Langfuse when you turn it on later.
 
 ## Endpoints
 
-- Grafana: http://localhost:3001 (`make obs-up-ui` or `obs-up-core` / `obs-up-all`)
-- Prometheus: http://localhost:9090 (`make obs-up`)
-- Tempo: http://localhost:3200 (`make obs-up`)
+- Grafana: http://localhost:3001 (`make docker-up-ui`)
+- Prometheus: http://localhost:9090 (`make docker-up`)
+- Tempo: http://localhost:3200 (`make docker-up`)
 - Collector metrics: http://localhost:8889/metrics
 - cAdvisor: http://localhost:8081
 - Kafka JMX exporter: http://localhost:5556/metrics
@@ -64,5 +64,5 @@ For complex RAG requests, inspect Tempo traces for these spans:
 - `generation.context_merge`
 - `generation.answer_synthesis`
 
-Langfuse uses the dev-only keys from `.env.example` unless overridden. Prefer `make obs-up`
-day-to-day and only start Langfuse when you need its UI.
+Langfuse uses the dev-only keys from `.env.example` unless overridden. Prefer
+`make docker-up` day-to-day and only start Langfuse when you need its UI.

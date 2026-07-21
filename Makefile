@@ -5,15 +5,13 @@ COMPOSE_VLLM := -f $(COMPOSE_DIR)/docker-compose.vllm.yml
 COMPOSE_OLLAMA := -f $(COMPOSE_DIR)/docker-compose.ollama.yml
 
 OBS_DIR := deployments/observability
-COMPOSE_OBS := -f $(OBS_DIR)/docker-compose.observability.yml
-COMPOSE_OBS_UI := -f $(OBS_DIR)/docker-compose.observability.ui.yml
 COMPOSE_OBS_LF_EXPORT := -f $(OBS_DIR)/docker-compose.observability.langfuse-export.yml
 COMPOSE_LANGFUSE := -f $(OBS_DIR)/docker-compose.langfuse.yml
 
-.PHONY: docker-up docker-down docker-up-ui docker-down-ui docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-ui obs-down-ui obs-up-core obs-down-core obs-up-llm obs-down-llm obs-up-all obs-down-all test test-integration eval-prepare eval-run eval-gate docker-build-api docker-build-worker
+.PHONY: docker-up docker-down docker-up-ui docker-down-ui docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up-llm obs-down-llm obs-up-all obs-down-all test test-integration eval-prepare eval-run eval-gate docker-build-api docker-build-worker
 
-# Essentials only: Postgres, MinIO, Elasticsearch, Kafka, Neo4j (+ bootstraps).
-# UIs (Kibana, Kafka UI) live in docker-compose.ui.yml; dashboards via obs-up-ui.
+# Base: app infra + OTEL collect (Collector, Prometheus, Tempo, JMX, cAdvisor).
+# UIs (Kibana, Kafka UI, Grafana) live in docker-compose.ui.yml.
 docker-up:
 	docker compose $(COMPOSE_BASE) up -d
 
@@ -21,8 +19,8 @@ docker-up-ui:
 	docker compose $(COMPOSE_BASE) $(COMPOSE_UI) up -d
 
 docker-down-ui:
-	docker compose $(COMPOSE_BASE) $(COMPOSE_UI) stop kibana kafka-ui
-	docker compose $(COMPOSE_BASE) $(COMPOSE_UI) rm -f kibana kafka-ui
+	docker compose $(COMPOSE_BASE) $(COMPOSE_UI) stop kibana kafka-ui grafana
+	docker compose $(COMPOSE_BASE) $(COMPOSE_UI) rm -f kibana kafka-ui grafana
 
 # Two images, not one: the API never parses documents (it only enqueues a
 # Kafka event on upload-complete), only the worker does - see Dockerfile.api
@@ -48,44 +46,22 @@ docker-up-ollama:
 docker-down-ollama:
 	docker compose $(COMPOSE_OLLAMA) down
 
-# Collect backends only (OTEL Collector, Prometheus, Tempo, JMX, cAdvisor).
-# Metrics/traces land in named volumes so Grafana can show history later.
-obs-up:
-	docker compose $(COMPOSE_OBS) up -d
-
-obs-down:
-	docker compose $(COMPOSE_OBS) $(COMPOSE_OBS_UI) $(COMPOSE_OBS_LF_EXPORT) $(COMPOSE_LANGFUSE) --profile llm down
-
-obs-up-ui:
-	docker compose $(COMPOSE_OBS) $(COMPOSE_OBS_UI) up -d
-
-obs-down-ui:
-	docker compose $(COMPOSE_OBS) $(COMPOSE_OBS_UI) stop grafana
-	docker compose $(COMPOSE_OBS) $(COMPOSE_OBS_UI) rm -f grafana
-
-# Collect + Grafana (no Langfuse). Alias kept for older docs/scripts.
-obs-up-core:
-	docker compose $(COMPOSE_OBS) $(COMPOSE_OBS_UI) up -d
-
-obs-down-core:
-	docker compose $(COMPOSE_OBS) $(COMPOSE_OBS_UI) down
-
-# Langfuse stack + fan OTEL traces into Langfuse (also keeps Tempo/Prom).
+# Langfuse stack + fan OTEL traces into Langfuse (base collect already running).
 obs-up-llm:
-	docker compose $(COMPOSE_OBS) $(COMPOSE_OBS_LF_EXPORT) $(COMPOSE_LANGFUSE) --profile llm up -d
+	docker compose $(COMPOSE_BASE) $(COMPOSE_OBS_LF_EXPORT) $(COMPOSE_LANGFUSE) --profile llm up -d
 
 obs-down-llm:
-	docker compose $(COMPOSE_OBS) $(COMPOSE_OBS_LF_EXPORT) $(COMPOSE_LANGFUSE) --profile llm stop \
+	docker compose $(COMPOSE_BASE) $(COMPOSE_OBS_LF_EXPORT) $(COMPOSE_LANGFUSE) --profile llm stop \
 		langfuse langfuse-worker langfuse-postgres langfuse-clickhouse langfuse-redis langfuse-minio
-	docker compose $(COMPOSE_OBS) $(COMPOSE_OBS_LF_EXPORT) $(COMPOSE_LANGFUSE) --profile llm rm -f \
+	docker compose $(COMPOSE_BASE) $(COMPOSE_OBS_LF_EXPORT) $(COMPOSE_LANGFUSE) --profile llm rm -f \
 		langfuse langfuse-worker langfuse-postgres langfuse-clickhouse langfuse-redis langfuse-minio
-	docker compose $(COMPOSE_OBS) up -d otel-collector
+	docker compose $(COMPOSE_BASE) up -d otel-collector
 
 obs-up-all:
-	docker compose $(COMPOSE_OBS) $(COMPOSE_OBS_UI) $(COMPOSE_OBS_LF_EXPORT) $(COMPOSE_LANGFUSE) --profile llm up -d
+	docker compose $(COMPOSE_BASE) $(COMPOSE_UI) $(COMPOSE_OBS_LF_EXPORT) $(COMPOSE_LANGFUSE) --profile llm up -d
 
 obs-down-all:
-	docker compose $(COMPOSE_OBS) $(COMPOSE_OBS_UI) $(COMPOSE_OBS_LF_EXPORT) $(COMPOSE_LANGFUSE) --profile llm down
+	docker compose $(COMPOSE_BASE) $(COMPOSE_UI) $(COMPOSE_OBS_LF_EXPORT) $(COMPOSE_LANGFUSE) --profile llm down
 
 # --group evaluation: tests/evaluation/ imports pyarrow/aiohttp/pyyaml directly.
 test:

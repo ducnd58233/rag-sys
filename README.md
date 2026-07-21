@@ -37,11 +37,9 @@ conda activate rag-sys
 ## Running
 
 ```bash
-make docker-up         # essentials only (Postgres, MinIO, ES, Kafka, Neo4j)
+make docker-up         # essentials + OTEL collect (Tempo/Prometheus volumes)
 make docker-up-ollama  # Ollama + model pull/warmup
-# optional: make docker-up-ui   # Kibana + Kafka UI
-# optional: make obs-up         # OTEL collect only (Tempo + Prometheus volumes)
-# optional: make obs-up-ui      # Grafana (reads collected history)
+# optional: make docker-up-ui   # Kibana + Kafka UI + Grafana
 # optional: make obs-up-llm     # Langfuse (+ OTEL export into Langfuse)
 uv run app       # or: uv run dev (auto-reload); warms embed+chat on startup
 uv run worker
@@ -95,21 +93,21 @@ After starting the API with `uv run app` or `uv run dev`, open:
 
 ## Observability and dashboards
 
-Collect and dashboards are separate so you can keep writing metrics/traces while Grafana is
-off, then open dashboards later against the same volumes. Details:
+`make docker-up` always starts the OTEL collector plus Prometheus/Tempo so metrics
+and traces accumulate even when dashboards are off. UIs are optional. Details:
 [`deployments/observability/README.md`](deployments/observability/README.md).
 
 ```bash
-make obs-up       # collect (OTEL → Tempo + Prometheus)
-make obs-up-ui    # Grafana UI only (needs collect already up, or starts it)
-make obs-up-llm   # Langfuse (optional LLM analytics)
-make obs-up-all   # collect + Grafana + Langfuse
+make docker-up        # app infra + OTEL collect
+make docker-up-ui     # Kibana + Kafka UI + Grafana
+make obs-up-llm       # Langfuse (optional LLM analytics)
+make obs-up-all       # base + all UIs + Langfuse
 ```
 
 Quick links:
 
-- Grafana: http://localhost:3001 (`make obs-up-ui`)
-- Prometheus / Tempo: http://localhost:9090 / http://localhost:3200 (`make obs-up`)
+- Grafana: http://localhost:3001 (`make docker-up-ui`)
+- Prometheus / Tempo: http://localhost:9090 / http://localhost:3200 (`make docker-up`)
 - Langfuse LLM analytics: http://localhost:3002 (`make obs-up-llm`)
 - GraphDB (Neo4j Browser): http://localhost:7474 (`neo4j` / `rag-sys-dev`; included in `make docker-up`)
 - Kafka UI (Kafbat): http://localhost:8082 (`make docker-up-ui`)
