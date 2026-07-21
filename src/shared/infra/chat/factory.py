@@ -21,6 +21,7 @@ class ChatModelFactory:
                     base_url=settings.ollama.url,
                     temperature=settings.temperature,
                     num_ctx=settings.num_ctx,
+                    num_predict=settings.num_predict,
                     client_kwargs={"timeout": settings.timeout_seconds},
                     async_client_kwargs={"timeout": settings.timeout_seconds},
                 )

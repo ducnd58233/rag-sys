@@ -46,11 +46,12 @@ def test_vllm_chat_factory_uses_openai_compatible_field_names() -> None:
     assert client.openai_api_key.get_secret_value() == "EMPTY"
 
 
-def test_ollama_chat_factory_passes_num_ctx() -> None:
+def test_ollama_chat_factory_passes_num_ctx_and_num_predict() -> None:
     settings = ChatSettings(
         provider="ollama",
         model="qwen3:4b-instruct",
-        num_ctx=16384,
+        num_ctx=8192,
+        num_predict=2048,
     )
 
     model = ChatModelFactory.from_settings(
@@ -59,4 +60,5 @@ def test_ollama_chat_factory_passes_num_ctx() -> None:
     )
     client = model._client  # noqa: SLF001
 
-    assert client.num_ctx == 16384
+    assert client.num_ctx == 8192
+    assert client.num_predict == 2048

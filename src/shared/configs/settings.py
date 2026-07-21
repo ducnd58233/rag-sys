@@ -112,9 +112,14 @@ class ChatSettings(BaseSettings):
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     timeout_seconds: float = Field(default=120.0, ge=0)
     num_ctx: int = Field(
-        default=16384,
+        default=8192,
         ge=2048,
         le=262144,
+    )
+    num_predict: int = Field(
+        default=2048,
+        ge=64,
+        le=32768,
     )
     top_k: int = Field(default=8, ge=1, le=100)
     complex_rag_enabled: bool = Field(default=True)
