@@ -7,7 +7,7 @@ OBS_DIR := deployments/observability
 COMPOSE_OBS := -f $(OBS_DIR)/docker-compose.observability.yml
 COMPOSE_LANGFUSE := -f $(OBS_DIR)/docker-compose.langfuse.yml
 
-.PHONY: docker-up docker-down docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-prepare eval-run
+.PHONY: docker-up docker-down docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-prepare eval-run eval-gate
 
 docker-up:
 	docker compose $(COMPOSE_BASE) up -d
@@ -54,12 +54,11 @@ test:
 test-integration:
 	uv run --group evaluation poe test-integration
 
-# --no-sync on the outer uv run too: eval-prepare/eval-run are normally used while
-# `uv run app`/`uv run worker` are already running, and uv's own "does the project
-# need rebuilding" check would otherwise try to overwrite app.exe/worker.exe while
-# Windows still has them open as a running process.
 eval-prepare:
 	uv run --no-sync poe eval-prepare
 
 eval-run:
 	uv run --no-sync poe eval-run
+
+eval-gate:
+	uv run --no-sync poe eval-gate

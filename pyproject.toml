@@ -84,6 +84,7 @@ test = "pytest"
 test-integration = "pytest tests/integration -m integration"
 eval-prepare = "uv run --group evaluation --no-sync python scripts/evaluation/prepare.py"
 eval-run = "uv run --group evaluation --no-sync python scripts/evaluation/run.py"
+eval-gate = "uv run --group evaluation --no-sync python scripts/evaluation/gates.py"
 
 [project.scripts]
 app = "src.app.api.main:run"

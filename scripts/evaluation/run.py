@@ -11,11 +11,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
-from scripts.evaluation.client import EvalHttpClient, RetrievalResponse
+from scripts.evaluation.client import AskResponse, EvalHttpClient, RetrievalResponse
 from scripts.evaluation.dataset import EvalCase
+from scripts.evaluation.judge.config import (
+    JudgeConfig,
+    build_judge_chat_model,
+    resolve_judge_config,
+)
+from scripts.evaluation.judge.rubrics import RUBRIC_VERSION
+from scripts.evaluation.judge.runner import (
+    decompose_claims,
+    judge_citation_support,
+    judge_claim_correctness,
+    judge_faithfulness,
+    judge_relevancy,
+)
 from scripts.evaluation.manifest import DEFAULT_MANIFEST_PATH, DatasetManifest
 from scripts.evaluation.manifest import load as load_manifest
 from scripts.evaluation.manifest import progress_path
+from scripts.evaluation.metrics import citation, generation
 from scripts.evaluation.metrics.retrieval import (
     hit_rate_at_k,
     ndcg_at_k,
@@ -23,9 +37,10 @@ from scripts.evaluation.metrics.retrieval import (
     recall_at_k,
     reciprocal_rank,
 )
-from scripts.evaluation.report import render_summary
+from scripts.evaluation.report import judge_error_rate, render_summary
 from scripts.evaluation.sources import SOURCES, get_source
 
+from src.shared.app.ports import IChatModel
 from src.shared.configs.logger import configure_logging
 from src.shared.configs.settings import ChatSettings, LoggingSettings
 
@@ -36,6 +51,7 @@ _RUNS_DIR = _REPO_ROOT / "runs" / "evaluation"
 _DEFAULT_DATASET = "bioasq"
 _LIMIT_SAMPLE_SEED = 20260720
 _DEFAULT_TIMEOUT_SECONDS = ChatSettings().timeout_seconds
+_JUDGE_ERROR_RATE_THRESHOLD = 0.05
 
 _ADJECTIVES = (
     "amber",
@@ -119,6 +135,166 @@ def _score_case(
     }
 
 
+_EMPTY_GENERATION_METRICS: dict[str, float | None] = {
+    "faithfulness": None,
+    "answer_relevancy": None,
+    "claim_precision": None,
+    "claim_recall": None,
+    "claim_f1": None,
+    "completeness": None,
+}
+_EMPTY_CITATION_METRICS: dict[str, float | None] = {
+    "citation_precision": None,
+    "citation_recall": None,
+}
+
+
+async def _score_generation(
+    judge_chat: IChatModel,
+    case: EvalCase,
+    ask_response: AskResponse,
+) -> dict[str, object]:
+    """Runs claim decomposition + the judge once per response and derives every
+    generation/citation metric from that single set of judgments - never re-decomposes per metric.
+    """
+    record: dict[str, object] = {
+        "answer": ask_response.answer,
+        "refused": ask_response.refused,
+        "citation_count": len(ask_response.citations),
+        "ask_latency_ms": ask_response.latency_ms,
+        "claims": [],
+        "unsupported_claim_indices": [],
+        "generated_claim_labels": [],
+        "covered_reference_indices": [],
+        "generation_metrics": dict(_EMPTY_GENERATION_METRICS),
+        "citation_metrics": dict(_EMPTY_CITATION_METRICS),
+        "judge_errors": [],
+    }
+    if ask_response.refused or not ask_response.answer.strip():
+        return record
+
+    judge_errors: list[str] = []
+    claims_result = await decompose_claims(judge_chat, ask_response.answer)
+    if claims_result.judge_error:
+        judge_errors.append(claims_result.judge_error)
+    claims = claims_result.claims
+    context = "\n\n".join(
+        citation_item.content for citation_item in ask_response.citations
+    )
+
+    faithfulness_result = await judge_faithfulness(
+        judge_chat, claims=claims, context=context
+    )
+    relevancy_result = await judge_relevancy(
+        judge_chat, question=case.question, answer=ask_response.answer
+    )
+    correctness_result = await judge_claim_correctness(
+        judge_chat,
+        generated_claims=claims,
+        reference_claims=case.reference_claims,
+    )
+    claim_text = " ".join(claims)
+    citation_pairs = (
+        tuple((claim_text, item.content) for item in ask_response.citations)
+        if claims
+        else ()
+    )
+    citation_result = await judge_citation_support(judge_chat, citation_pairs)
+
+    for judged in (
+        faithfulness_result,
+        relevancy_result,
+        correctness_result,
+        citation_result,
+    ):
+        if judged.judge_error:
+            judge_errors.append(judged.judge_error)
+
+    supported_claim_count = len(claims) - len(
+        faithfulness_result.unsupported_claim_indices
+    )
+    # A metric whose underlying judge call failed must stay None, never silently
+    # compute from empty/default judgment data - each metric below is gated on its own judge_error,
+    # and citation_recall additionally on faithfulness_result's, since it reuses
+    # supported_claim_count.
+    faithfulness_score = (
+        None
+        if faithfulness_result.judge_error
+        else generation.faithfulness(
+            claim_count=len(claims),
+            unsupported_count=len(faithfulness_result.unsupported_claim_indices),
+        )
+    )
+    relevancy_score = (
+        None
+        if relevancy_result.judge_error
+        else generation.answer_relevancy(relevancy_result.score)
+    )
+    precision = (
+        None
+        if correctness_result.judge_error
+        else generation.claim_precision(correctness_result.generated_claim_labels)
+    )
+    recall = (
+        None
+        if correctness_result.judge_error
+        else generation.claim_recall(
+            reference_claim_count=len(case.reference_claims),
+            covered_reference_count=len(correctness_result.covered_reference_indices),
+        )
+    )
+    completeness_score = (
+        None
+        if correctness_result.judge_error
+        else generation.completeness(
+            reference_claim_count=len(case.reference_claims),
+            covered_reference_count=len(correctness_result.covered_reference_indices),
+        )
+    )
+    citation_precision_score = (
+        None
+        if citation_result.judge_error
+        else citation.citation_precision(
+            cited_count=len(ask_response.citations),
+            supported_count=len(citation_result.supported_pair_indices),
+        )
+    )
+    citation_recall_score = (
+        None
+        if (citation_result.judge_error or faithfulness_result.judge_error)
+        else citation.citation_recall(
+            claims_requiring_evidence_count=len(claims),
+            claims_with_valid_citation_count=supported_claim_count,
+        )
+    )
+
+    record["claims"] = list(claims)
+    record["unsupported_claim_indices"] = list(
+        faithfulness_result.unsupported_claim_indices
+    )
+    # FR-EVAL-3: per-claim labels stored on the raw result, not just folded into
+    # the aggregate score, so a disagreement can be inspected rather than argued
+    # about.
+    record["generated_claim_labels"] = list(correctness_result.generated_claim_labels)
+    record["covered_reference_indices"] = list(
+        correctness_result.covered_reference_indices
+    )
+    record["generation_metrics"] = {
+        "faithfulness": faithfulness_score,
+        "answer_relevancy": relevancy_score,
+        "claim_precision": precision,
+        "claim_recall": recall,
+        "claim_f1": generation.claim_f1(precision, recall),
+        "completeness": completeness_score,
+    }
+    record["citation_metrics"] = {
+        "citation_precision": citation_precision_score,
+        "citation_recall": citation_recall_score,
+    }
+    record["judge_errors"] = judge_errors
+    return record
+
+
 async def _run_once(
     cases: list[EvalCase],
     *,
@@ -127,6 +303,7 @@ async def _run_once(
     top_k: int,
     concurrency: int,
     timeout_seconds: float,
+    judge_chat: IChatModel | None,
 ) -> list[dict[str, object]]:
     semaphore = asyncio.Semaphore(concurrency)
 
@@ -135,7 +312,13 @@ async def _run_once(
             response = await client.retrieve(
                 org_id=org_id, query=case.question, top_k=top_k
             )
-        return _score_case(case, response, top_k=top_k)
+            record = _score_case(case, response, top_k=top_k)
+            if judge_chat is not None:
+                ask_response = await client.ask(
+                    org_id=org_id, query=case.question, top_k=top_k
+                )
+                record.update(await _score_generation(judge_chat, case, ask_response))
+        return record
 
     async with EvalHttpClient(base_url, timeout_seconds=timeout_seconds) as client:
         return await asyncio.gather(*(_score(client, case) for case in cases))
@@ -173,6 +356,7 @@ async def run_evaluation(
     timeout_seconds: float,
     limit: int | None = None,
     cleanup: bool = False,
+    score_generation: bool = True,
 ) -> Path:
     source = get_source(dataset)
     manifest = load_manifest(dataset, path=manifest_path)
@@ -204,6 +388,20 @@ async def run_evaluation(
     run_dir = _RUNS_DIR / f"{datetime.now().strftime('%m-%d-%Y')}-{_run_slug()}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    judge_config: JudgeConfig | None = None
+    judge_chat: IChatModel | None = None
+    if score_generation:
+        judge_config = resolve_judge_config()
+        judge_chat = build_judge_chat_model(judge_config)
+        if judge_config.self_preference_risk:
+            logger.warning(
+                "judge model (%s/%s) is the same as the app's generation model - "
+                "scores carry a self-preference risk (PLAN.md R2). Set "
+                "EVAL_JUDGE_PROVIDER/EVAL_JUDGE_MODEL to use a different judge.",
+                judge_config.provider,
+                judge_config.model,
+            )
+
     records_by_run: list[list[dict[str, object]]] = []
     for run_index in range(1, runs + 1):
         records = await _run_once(
@@ -213,6 +411,7 @@ async def run_evaluation(
             top_k=top_k,
             concurrency=concurrency,
             timeout_seconds=timeout_seconds,
+            judge_chat=judge_chat,
         )
         records_by_run.append(records)
         results_path = run_dir / f"results-run-{run_index}.jsonl"
@@ -239,6 +438,18 @@ async def run_evaluation(
         "top_k": top_k,
         "runs": runs,
         "concurrency": concurrency,
+        "score_generation": score_generation,
+        "judge": (
+            {
+                "provider": judge_config.provider,
+                "model": judge_config.model,
+                "temperature": judge_config.temperature,
+                "rubric_version": RUBRIC_VERSION,
+                "self_preference_risk": judge_config.self_preference_risk,
+            }
+            if judge_config is not None
+            else None
+        ),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
     (run_dir / "config.yaml").write_text(
@@ -254,6 +465,15 @@ async def run_evaluation(
 
     if cleanup:
         _cleanup(manifest)
+
+    error_rate = judge_error_rate(records_by_run)
+    if error_rate is not None and error_rate["rate"] > _JUDGE_ERROR_RATE_THRESHOLD:
+        raise RuntimeError(
+            f"judge error rate {error_rate['rate']:.2%} exceeds the "
+            f"{_JUDGE_ERROR_RATE_THRESHOLD:.0%} threshold (FR-EVAL-6) - "
+            f"{error_rate['errored']}/{error_rate['n']} cases had a judge_error. "
+            f"Artefacts were still written to {run_dir} for inspection."
+        )
 
     return run_dir
 
@@ -317,6 +537,19 @@ def main(argv: list[str] | None = None) -> int:
             "touch raw downloads, manifest.json, or anything in the database"
         ),
     )
+    parser.add_argument(
+        "--skip-generation",
+        action="store_true",
+        help=(
+            "score retrieval only, skipping /generation/ask + the LLM judge "
+            "(faithfulness, relevancy, claim F1, completeness, citation "
+            "precision/recall). Generation scoring runs by default and adds one "
+            "HTTP call plus up to five judge calls per case - use this for a fast "
+            "retrieval-only iteration loop. Judge model/provider default to the "
+            "app's own generation model unless EVAL_JUDGE_PROVIDER/EVAL_JUDGE_MODEL "
+            "are set (see PLAN.md R2 - self-preference risk when they match)."
+        ),
+    )
     args = parser.parse_args(argv)
 
     asyncio.run(
@@ -332,6 +565,7 @@ def main(argv: list[str] | None = None) -> int:
             timeout_seconds=args.timeout_seconds,
             limit=args.limit,
             cleanup=args.cleanup,
+            score_generation=not args.skip_generation,
         ),
     )
     return 0
