@@ -49,6 +49,5 @@ class LlmGraphQueryAnalyzer:
             user=f"QUERY: {query}",
             schema=GraphQuerySchema,
             temperature=0.0,
-            max_tokens=256,
         )
         return tuple(entity.strip() for entity in result.entities if entity.strip())

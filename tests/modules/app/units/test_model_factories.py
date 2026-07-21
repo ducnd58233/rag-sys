@@ -32,7 +32,6 @@ def test_vllm_chat_factory_uses_openai_compatible_field_names() -> None:
         provider="vllm",
         model="qwen2.5",
         timeout_seconds=9.0,
-        max_tokens=32,
         vllm=VLLMSettings(chat_url="http://localhost:8003"),
     )
 

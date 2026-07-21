@@ -29,7 +29,6 @@ class ChatModelFactory:
                     openai_api_base=f"{settings.vllm.chat_url.rstrip('/')}/v1",
                     openai_api_key="EMPTY",
                     temperature=settings.temperature,
-                    max_tokens=settings.max_tokens,
                     request_timeout=settings.timeout_seconds,
                 )
             case _:

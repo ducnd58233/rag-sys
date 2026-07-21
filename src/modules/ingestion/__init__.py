@@ -76,10 +76,6 @@ class IngestionComponentFactory:
             graph_extractor=LlmDocumentGraphExtractor(
                 chat_model,
                 extraction_max_characters=settings.graphdb.extraction_max_characters,
-                extraction_max_tokens=settings.graphdb.extraction_max_tokens,
-                canonicalization_max_tokens=(
-                    settings.graphdb.canonicalization_max_tokens
-                ),
             ),
             graph_store=graph_store,
         )

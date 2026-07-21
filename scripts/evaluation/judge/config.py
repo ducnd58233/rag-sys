@@ -4,7 +4,8 @@ import os
 from dataclasses import dataclass
 
 from src.shared.app.ports import IChatModel
-from src.shared.configs.settings import ChatSettings
+from src.shared.app.retry import RetryPolicy
+from src.shared.configs.settings import ChatSettings, ResilienceSettings
 from src.shared.infra.chat.factory import ChatModelFactory
 
 _JUDGE_PROVIDER_ENV = "EVAL_JUDGE_PROVIDER"
@@ -40,4 +41,12 @@ def build_judge_chat_model(config: JudgeConfig) -> IChatModel:
         model=config.model,
         temperature=config.temperature,
     )
-    return ChatModelFactory.from_settings(settings)
+    resilience = ResilienceSettings()
+    return ChatModelFactory.from_settings(
+        settings,
+        retry_policy=RetryPolicy(
+            max_attempts=resilience.retry_max_attempts,
+            base_delay_seconds=resilience.retry_base_delay_seconds,
+            max_delay_seconds=resilience.retry_max_delay_seconds,
+        ),
+    )

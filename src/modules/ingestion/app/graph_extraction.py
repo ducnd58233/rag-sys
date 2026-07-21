@@ -104,13 +104,9 @@ class LlmDocumentGraphExtractor:
         chat_model: IChatModel,
         *,
         extraction_max_characters: int,
-        extraction_max_tokens: int = 1024,
-        canonicalization_max_tokens: int = 512,
     ) -> None:
         self._chat = chat_model
         self._extraction_max_characters = extraction_max_characters
-        self._extraction_max_tokens = extraction_max_tokens
-        self._canonicalization_max_tokens = canonicalization_max_tokens
 
     async def extract(
         self,
@@ -155,7 +151,6 @@ class LlmDocumentGraphExtractor:
                 user=_chunk_prompt(source, chunk, self._extraction_max_characters),
                 schema=DocumentGraphSchema,
                 temperature=0.0,
-                max_tokens=self._extraction_max_tokens,
             )
         except Exception:
             logger.exception(
@@ -174,7 +169,6 @@ class LlmDocumentGraphExtractor:
                 user="NAMES:\n" + "\n".join(distinct),
                 schema=EntityCanonicalizationSchema,
                 temperature=0.0,
-                max_tokens=self._canonicalization_max_tokens,
             )
         except Exception:
             logger.exception("entity canonicalization failed; keeping raw entity names")

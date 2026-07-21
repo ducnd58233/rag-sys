@@ -37,12 +37,14 @@ from scripts.evaluation.metrics.retrieval import (
     recall_at_k,
     reciprocal_rank,
 )
+from scripts.evaluation.progress import EvalProgressStats
 from scripts.evaluation.report import judge_error_rate, render_summary
 from scripts.evaluation.sources import SOURCES, get_source
 
 from src.shared.app.ports import IChatModel
 from src.shared.configs.logger import configure_logging
 from src.shared.configs.settings import ChatSettings, LoggingSettings
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -304,8 +306,11 @@ async def _run_once(
     concurrency: int,
     timeout_seconds: float,
     judge_chat: IChatModel | None,
+    run_label: str,
 ) -> list[dict[str, object]]:
     semaphore = asyncio.Semaphore(concurrency)
+    stats = EvalProgressStats()
+    progress = tqdm(total=len(cases), desc=run_label, unit="case")
 
     async def _score(client: EvalHttpClient, case: EvalCase) -> dict[str, object]:
         async with semaphore:
@@ -318,11 +323,16 @@ async def _run_once(
                     org_id=org_id, query=case.question, top_k=top_k
                 )
                 record.update(await _score_generation(judge_chat, case, ask_response))
+        stats.observe(record)
+        progress.set_postfix(**stats.postfix(), refresh=False)
+        progress.update(1)
         return record
 
-    async with EvalHttpClient(base_url, timeout_seconds=timeout_seconds) as client:
-        return await asyncio.gather(*(_score(client, case) for case in cases))
-
+    try:
+        async with EvalHttpClient(base_url, timeout_seconds=timeout_seconds) as client:
+            return await asyncio.gather(*(_score(client, case) for case in cases))
+    finally:
+        progress.close()
 
 def _cleanup(manifest: DatasetManifest) -> None:
     processed_dir = _REPO_ROOT / manifest.processed_dir
@@ -412,6 +422,7 @@ async def run_evaluation(
             concurrency=concurrency,
             timeout_seconds=timeout_seconds,
             judge_chat=judge_chat,
+            run_label=f"eval {run_index}/{runs}",
         )
         records_by_run.append(records)
         results_path = run_dir / f"results-run-{run_index}.jsonl"

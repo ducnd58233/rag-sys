@@ -185,7 +185,6 @@ class AnswerQuestionUseCase:
                             user=user,
                             schema=GroundedAnswerSchema,
                             temperature=self._chat_settings.temperature,
-                            max_tokens=self._chat_settings.max_tokens,
                         )
                     if query_plan.sub_questions and _missing_supported_intents(
                         structured,
@@ -531,7 +530,6 @@ class AnswerQuestionUseCase:
                 system=system,
                 user=user,
                 temperature=None,
-                max_tokens=None,
             )
         answer = result.content.strip()
         if answer == REFUSAL_ANSWER:
@@ -577,7 +575,6 @@ class AnswerQuestionUseCase:
                 system=system,
                 user=user,
                 temperature=None,
-                max_tokens=None,
             )
         answer = result.content.strip()
         if not answer or answer == REFUSAL_ANSWER:
@@ -600,7 +597,6 @@ class AnswerQuestionUseCase:
                 system=system,
                 user=user,
                 temperature=None,
-                max_tokens=None,
             )
         answer = result.content.strip()
         if not answer or answer.upper().rstrip(".") == "NO_MATH_EVIDENCE":
@@ -620,7 +616,6 @@ class AnswerQuestionUseCase:
                 user=user,
                 schema=MathEvidenceSchema,
                 temperature=None,
-                max_tokens=None,
             )
         checked = verified.formula_latex.strip()
         if (

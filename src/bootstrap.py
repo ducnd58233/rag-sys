@@ -83,7 +83,6 @@ class AppContainer:
                 await self.chat_model.complete(
                     system=resilience.warmup_chat_system,
                     user=resilience.warmup_chat_user,
-                    max_tokens=8,
                 )
         except Exception:
             if resilience.warmup_fail_fast:

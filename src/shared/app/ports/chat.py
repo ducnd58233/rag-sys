@@ -29,7 +29,6 @@ class IChatModel(Protocol):
         system: str,
         user: str,
         temperature: float | None = None,
-        max_tokens: int | None = None,
     ) -> ChatResult: ...
 
     async def complete_structured(
@@ -39,7 +38,6 @@ class IChatModel(Protocol):
         user: str,
         schema: type[TSchema],
         temperature: float | None = None,
-        max_tokens: int | None = None,
     ) -> TSchema: ...
 
     def bind_tools(self, tools: Sequence[object]) -> IChatModel: ...

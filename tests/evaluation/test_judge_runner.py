@@ -33,7 +33,6 @@ class FakeChatModel:
         user: str,
         schema: type[BaseModel],
         temperature: float | None = None,
-        max_tokens: int | None = None,
     ) -> BaseModel:
         self.calls += 1
         response = self._responses.pop(0)
