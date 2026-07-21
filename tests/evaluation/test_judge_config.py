@@ -1,8 +1,14 @@
 from __future__ import annotations
 
-from scripts.evaluation.judge.config import resolve_judge_config
+from scripts.evaluation.judge.config import (
+    JudgeConfig,
+    build_judge_chat_model,
+    resolve_judge_config,
+)
 
+from src.shared.app.retry import RetryPolicy
 from src.shared.configs.settings import ChatSettings
+from src.shared.infra.chat.langchain import LangChainChatModel
 
 
 def test_resolve_judge_config_flags_self_preference_when_no_override_is_set(
@@ -40,3 +46,33 @@ def test_resolve_judge_config_uses_zero_temperature_regardless_of_app_settings()
     config = resolve_judge_config(app_settings)
 
     assert config.temperature == 0.0
+
+
+def test_build_judge_chat_model_passes_retry_policy(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_from_settings(settings: ChatSettings, *, retry_policy: RetryPolicy):
+        captured["settings"] = settings
+        captured["retry_policy"] = retry_policy
+        return object()
+
+    monkeypatch.setattr(
+        "scripts.evaluation.judge.config.ChatModelFactory.from_settings",
+        fake_from_settings,
+    )
+
+    model = build_judge_chat_model(
+        JudgeConfig(
+            provider="ollama",
+            model="qwen2.5:1.5b",
+            temperature=0.0,
+            self_preference_risk=True,
+        )
+    )
+
+    assert model is not None
+    assert isinstance(captured["retry_policy"], RetryPolicy)
+    settings = captured["settings"]
+    assert isinstance(settings, ChatSettings)
+    assert settings.provider == "ollama"
+    assert settings.model == "qwen2.5:1.5b"
