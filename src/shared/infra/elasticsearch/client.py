@@ -8,6 +8,10 @@ class Elasticsearch:
         self._client = AsyncElasticsearch(
             hosts=settings.urls,
             request_timeout=settings.request_timeout_seconds,
+            max_retries=settings.max_retries,
+            retry_on_timeout=settings.retry_on_timeout,
+            retry_backoff_base=settings.retry_backoff_base,
+            retry_backoff_cap=settings.retry_backoff_cap,
         )
 
     @property

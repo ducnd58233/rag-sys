@@ -11,6 +11,11 @@ from opentelemetry.trace import Status, StatusCode
 from pydantic import BaseModel
 
 from src.shared.app.ports import ChatResult, IChatModel, ToolCall
+from src.shared.app.retry import (
+    RetryPolicy,
+    is_transient_io_error,
+    run_with_retry,
+)
 from src.shared.observability.metrics import (
     gen_ai_client_operation_duration,
     gen_ai_client_token_usage,
@@ -29,10 +34,12 @@ class LangChainChatModel:
         *,
         model_name: str,
         provider_name: str,
+        retry_policy: RetryPolicy,
     ) -> None:
         self._client = client
         self._model_name = model_name
         self._provider_name = provider_name
+        self._retry_policy = retry_policy
 
     def _bound(
         self,
@@ -75,8 +82,16 @@ class LangChainChatModel:
             attributes=span_attributes,
         ) as span:
             try:
-                message = await model.ainvoke(
-                    [SystemMessage(content=system), HumanMessage(content=user)],
+                message = await run_with_retry(
+                    lambda: model.ainvoke(
+                        [
+                            SystemMessage(content=system),
+                            HumanMessage(content=user),
+                        ],
+                    ),
+                    policy=self._retry_policy,
+                    is_retryable=is_transient_io_error,
+                    operation_name="chat",
                 )
             except Exception as error:
                 error_type = error.__class__.__name__
@@ -138,11 +153,24 @@ class LangChainChatModel:
             attributes=span_attributes,
         ) as span:
             try:
-                result = await structured.ainvoke(
-                    [SystemMessage(content=system), HumanMessage(content=user)],
+
+                async def _invoke() -> dict[str, object]:
+                    invoked = await structured.ainvoke(
+                        [
+                            SystemMessage(content=system),
+                            HumanMessage(content=user),
+                        ],
+                    )
+                    if invoked["parsing_error"] is not None:
+                        raise invoked["parsing_error"]
+                    return invoked
+
+                result = await run_with_retry(
+                    _invoke,
+                    policy=self._retry_policy,
+                    is_retryable=is_transient_io_error,
+                    operation_name="chat_structured",
                 )
-                if result["parsing_error"] is not None:
-                    raise result["parsing_error"]
             except Exception as error:
                 error_type = error.__class__.__name__
                 span.set_status(Status(StatusCode.ERROR, error_type))
@@ -166,6 +194,7 @@ class LangChainChatModel:
             self._client.bind_tools(tools),
             model_name=self._model_name,
             provider_name=self._provider_name,
+            retry_policy=self._retry_policy,
         )
 
     def _metric_attributes(self, operation_name: str) -> dict[str, str]:

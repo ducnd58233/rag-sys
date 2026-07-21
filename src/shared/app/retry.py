@@ -26,8 +26,6 @@ _TRANSIENT_HTTPX = (
 
 @dataclass(frozen=True, slots=True)
 class RetryPolicy:
-    """Exponential backoff capped by max_delay_seconds (attempt is 1-based)."""
-
     max_attempts: int = 3
     base_delay_seconds: float = 2.0
     max_delay_seconds: float = 30.0
@@ -40,14 +38,12 @@ class RetryPolicy:
 
 
 def is_retryable(error: Exception) -> bool:
-    """Domain-aware retry gate used by Kafka consumer runtime."""
     if isinstance(error, DomainException):
         return error.code not in NON_RETRYABLE_CODES
     return True
 
 
 def is_transient_io_error(error: Exception) -> bool:
-    """True for network/transport failures that may succeed on retry."""
     if isinstance(error, _TRANSIENT_HTTPX):
         return True
     cause = error.__cause__ or error.__context__
@@ -63,7 +59,6 @@ async def run_with_retry(
     is_retryable: Callable[[Exception], bool],
     operation_name: str = "operation",
 ) -> T:
-    """Run an async operation with exponential backoff on retryable errors."""
     attempt = 1
     while True:
         try:

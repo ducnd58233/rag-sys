@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import time
 from collections.abc import Sequence
 
@@ -5,6 +7,11 @@ from langchain.embeddings import Embeddings
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from src.shared.app.retry import (
+    RetryPolicy,
+    is_transient_io_error,
+    run_with_retry,
+)
 from src.shared.observability.metrics import gen_ai_client_operation_duration
 
 _tracer = trace.get_tracer(__name__)
@@ -18,11 +25,13 @@ class LangChainEmbeddingModel:
         dimensions: int,
         model_name: str,
         provider_name: str,
+        retry_policy: RetryPolicy,
     ) -> None:
         self._client = client
         self._dimensions = dimensions
         self._model_name = model_name
         self._provider_name = provider_name
+        self._retry_policy = retry_policy
 
     @property
     def dimensions(self) -> int:
@@ -45,7 +54,12 @@ class LangChainEmbeddingModel:
             },
         ) as span:
             try:
-                vectors = await self._client.aembed_documents(list(texts))
+                vectors = await run_with_retry(
+                    lambda: self._client.aembed_documents(list(texts)),
+                    policy=self._retry_policy,
+                    is_retryable=is_transient_io_error,
+                    operation_name="embedding",
+                )
             except Exception as error:
                 error_type = error.__class__.__name__
                 span.set_status(Status(StatusCode.ERROR, error_type))
