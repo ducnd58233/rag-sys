@@ -23,4 +23,5 @@ datasets/*/raw/*
 datasets/*/processed/*
 datasets/*/.index-progress.jsonl
 datasets/manifest.json
-!runs/evaluation/*
+runs/evaluation/*
+!runs/evaluation/.gitkeep
