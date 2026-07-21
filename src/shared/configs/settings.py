@@ -106,11 +106,21 @@ class ChatSettings(BaseSettings):
         extra="ignore",
     )
     provider: str = Field(default="ollama")
-    model: str = Field(default="qwen2.5:1.5b")
+    model: str = Field(default="qwen3:4b-instruct")
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     vllm: VLLMSettings = Field(default_factory=VLLMSettings)
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     timeout_seconds: float = Field(default=120.0, ge=0)
+    num_ctx: int = Field(
+        default=8192,
+        ge=2048,
+        le=262144,
+    )
+    num_predict: int = Field(
+        default=2048,
+        ge=64,
+        le=32768,
+    )
     top_k: int = Field(default=8, ge=1, le=100)
     complex_rag_enabled: bool = Field(default=True)
     complex_rag_max_retrieval_queries: int = Field(default=20, ge=1, le=50)

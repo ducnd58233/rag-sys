@@ -236,7 +236,7 @@ def test_render_summary_includes_judge_and_abstention_sections() -> None:
             "generated_at": "2026-07-21T00:00:00+00:00",
             "judge": {
                 "provider": "ollama",
-                "model": "qwen2.5:1.5b",
+                "model": "qwen3:4b-instruct",
                 "rubric_version": "judge-rubrics-v1",
                 "self_preference_risk": True,
             },

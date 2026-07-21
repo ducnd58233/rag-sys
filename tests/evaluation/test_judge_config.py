@@ -15,12 +15,12 @@ def test_resolve_judge_config_flags_self_preference_when_no_override_is_set(
 ) -> None:
     monkeypatch.delenv("EVAL_JUDGE_PROVIDER", raising=False)
     monkeypatch.delenv("EVAL_JUDGE_MODEL", raising=False)
-    app_settings = ChatSettings(provider="ollama", model="qwen2.5:1.5b")
+    app_settings = ChatSettings(provider="ollama", model="qwen3:4b-instruct")
 
     config = resolve_judge_config(app_settings)
 
     assert config.provider == "ollama"
-    assert config.model == "qwen2.5:1.5b"
+    assert config.model == "qwen3:4b-instruct"
     assert config.self_preference_risk is True
 
 
@@ -29,7 +29,7 @@ def test_resolve_judge_config_clears_self_preference_risk_when_model_overridden(
 ) -> None:
     monkeypatch.delenv("EVAL_JUDGE_PROVIDER", raising=False)
     monkeypatch.setenv("EVAL_JUDGE_MODEL", "a-bigger-judge-model")
-    app_settings = ChatSettings(provider="ollama", model="qwen2.5:1.5b")
+    app_settings = ChatSettings(provider="ollama", model="qwen3:4b-instruct")
 
     config = resolve_judge_config(app_settings)
 
@@ -63,7 +63,7 @@ def test_build_judge_chat_model_passes_retry_policy(monkeypatch) -> None:
     model = build_judge_chat_model(
         JudgeConfig(
             provider="ollama",
-            model="qwen2.5:1.5b",
+            model="qwen3:4b-instruct",
             temperature=0.0,
             self_preference_risk=True,
         )
@@ -74,4 +74,4 @@ def test_build_judge_chat_model_passes_retry_policy(monkeypatch) -> None:
     settings = captured["settings"]
     assert isinstance(settings, ChatSettings)
     assert settings.provider == "ollama"
-    assert settings.model == "qwen2.5:1.5b"
+    assert settings.model == "qwen3:4b-instruct"
