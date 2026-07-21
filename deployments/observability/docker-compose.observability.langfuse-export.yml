@@ -1,0 +1,7 @@
+name: rag-sys
+
+services:
+  otel-collector:
+    command:
+      - '--config=/etc/otel/config.yaml'
+      - '--config=/etc/otel/config.langfuse.yaml'

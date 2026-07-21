@@ -6,6 +6,7 @@ services:
     command: ['--config=/etc/otel/config.yaml']
     volumes:
       - ./otel-collector/config.yaml:/etc/otel/config.yaml:ro
+      - ./otel-collector/config.langfuse.yaml:/etc/otel/config.langfuse.yaml:ro
     environment:
       LANGFUSE_OTLP_ENDPOINT: ${LANGFUSE_OTLP_ENDPOINT:-http://langfuse:3000/api/public/otel}
       LANGFUSE_BASIC_AUTH: ${LANGFUSE_BASIC_AUTH:-cGstbGYtZGV2OnNrLWxmLWRldg==}
@@ -38,23 +39,6 @@ services:
       - '3200:3200'
     restart: unless-stopped
 
-  grafana:
-    image: grafana/grafana:11.4.0
-    environment:
-      GF_AUTH_ANONYMOUS_ENABLED: 'true'
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-    volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana_data:/var/lib/grafana
-    ports:
-      - '3001:3000'
-    depends_on:
-      - prometheus
-      - tempo
-    restart: unless-stopped
-
   kafka-jmx-exporter:
     image: sscaling/jmx-prometheus-exporter:0.12.0
     volumes:
@@ -77,4 +61,3 @@ services:
 volumes:
   prometheus_data:
   tempo_data:
-  grafana_data:

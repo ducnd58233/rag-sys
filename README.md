@@ -39,8 +39,10 @@ conda activate rag-sys
 ```bash
 make docker-up         # essentials only (Postgres, MinIO, ES, Kafka, Neo4j)
 make docker-up-ollama  # Ollama + model pull/warmup
-# optional: make docker-up-ui   # Kibana + Kafka UI (docker-compose.ui.yml)
-# optional: make obs-up        # Grafana / Tempo / Prometheus / Langfuse
+# optional: make docker-up-ui   # Kibana + Kafka UI
+# optional: make obs-up         # OTEL collect only (Tempo + Prometheus volumes)
+# optional: make obs-up-ui      # Grafana (reads collected history)
+# optional: make obs-up-llm     # Langfuse (+ OTEL export into Langfuse)
 uv run app       # or: uv run dev (auto-reload); warms embed+chat on startup
 uv run worker
 ```
@@ -93,12 +95,22 @@ After starting the API with `uv run app` or `uv run dev`, open:
 
 ## Observability and dashboards
 
-Full dashboard list, key Grafana panels, and the trace-span reference live in
-[`deployments/observability/README.md`](deployments/observability/README.md). Quick links once
-`make obs-up` / `make docker-up-ui` are running:
+Collect and dashboards are separate so you can keep writing metrics/traces while Grafana is
+off, then open dashboards later against the same volumes. Details:
+[`deployments/observability/README.md`](deployments/observability/README.md).
 
-- Grafana: http://localhost:3001 (`make obs-up`)
-- Langfuse LLM analytics: http://localhost:3002 (`make obs-up`)
+```bash
+make obs-up       # collect (OTEL → Tempo + Prometheus)
+make obs-up-ui    # Grafana UI only (needs collect already up, or starts it)
+make obs-up-llm   # Langfuse (optional LLM analytics)
+make obs-up-all   # collect + Grafana + Langfuse
+```
+
+Quick links:
+
+- Grafana: http://localhost:3001 (`make obs-up-ui`)
+- Prometheus / Tempo: http://localhost:9090 / http://localhost:3200 (`make obs-up`)
+- Langfuse LLM analytics: http://localhost:3002 (`make obs-up-llm`)
 - GraphDB (Neo4j Browser): http://localhost:7474 (`neo4j` / `rag-sys-dev`; included in `make docker-up`)
 - Kafka UI (Kafbat): http://localhost:8082 (`make docker-up-ui`)
 - Kibana: http://localhost:5601 (`make docker-up-ui`)
