@@ -22,12 +22,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.14-slim-bookworm AS runtime
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      libmagic1 \
-      poppler-utils \
-      tesseract-ocr \
-    && rm -rf /var/lib/apt/lists/*
-
+# No libmagic/poppler/tesseract here: the API process never calls
+# IDocumentProcessor directly (CompleteDocumentUploadUseCase only enqueues a
+# Kafka event); only the worker's ingestion handler parses documents. See
+# Dockerfile.worker.
 RUN useradd --create-home --uid 10001 appuser
 WORKDIR /app
 
