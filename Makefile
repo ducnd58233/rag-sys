@@ -7,15 +7,27 @@ OBS_DIR := deployments/observability
 COMPOSE_OBS := -f $(OBS_DIR)/docker-compose.observability.yml
 COMPOSE_LANGFUSE := -f $(OBS_DIR)/docker-compose.langfuse.yml
 
-.PHONY: docker-up docker-down docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-prepare eval-run
+.PHONY: docker-up docker-down docker-up-ui docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-prepare eval-run docker-build-api docker-build-worker
 
+# Essentials only: Postgres, MinIO, Elasticsearch, Kafka, Neo4j (+ bootstraps).
+# UIs (Kibana, Kafka UI) and observability/Langfuse are opt-in.
 docker-up:
 	docker compose $(COMPOSE_BASE) up -d
-	docker compose $(COMPOSE_OBS) $(COMPOSE_LANGFUSE) --profile llm up -d
+
+docker-up-ui:
+	docker compose $(COMPOSE_BASE) --profile ui up -d
+
+# Two images, not one: the API never parses documents (it only enqueues a
+# Kafka event on upload-complete), only the worker does - see Dockerfile.api
+# vs Dockerfile.worker for the dependency split this buys.
+docker-build-api:
+	docker build -f Dockerfile.api -t rag-sys-api:dev .
+
+docker-build-worker:
+	docker build -f Dockerfile.worker -t rag-sys-worker:dev .
 
 docker-down:
-	docker compose $(COMPOSE_OBS) $(COMPOSE_LANGFUSE) --profile llm down
-	docker compose $(COMPOSE_BASE) down
+	docker compose $(COMPOSE_BASE) --profile ui down
 
 docker-up-vllm:
 	docker compose $(COMPOSE_VLLM) up -d

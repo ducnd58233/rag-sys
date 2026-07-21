@@ -21,9 +21,11 @@ conda activate rag-sys
 ## Running
 
 ```bash
-make docker-up
-make docker-up-ollama
-uv run app       # or: uv run dev (auto-reload)
+make docker-up         # essentials only (Postgres, MinIO, ES, Kafka, Neo4j)
+make docker-up-ollama  # Ollama + model pull/warmup
+# optional: make docker-up-ui   # Kibana + Kafka UI
+# optional: make obs-up        # Grafana / Tempo / Prometheus / Langfuse
+uv run app       # or: uv run dev (auto-reload); warms embed+chat on startup
 uv run worker
 ```
 
@@ -75,12 +77,13 @@ After starting the API with `uv run app` or `uv run dev`, open:
 
 Full dashboard list, key Grafana panels, and the trace-span reference live in
 [`deployments/observability/README.md`](deployments/observability/README.md). Quick links once
-`make docker-up` (or `make obs-up`) is running:
+`make obs-up` / `make docker-up-ui` are running:
 
-- Grafana: http://localhost:3001
-- Langfuse LLM analytics: http://localhost:3002
-- GraphDB (Neo4j Browser): http://localhost:7474 (`neo4j` / `rag-sys-dev`)
-- Kafka UI (Kafbat): http://localhost:8082
+- Grafana: http://localhost:3001 (`make obs-up`)
+- Langfuse LLM analytics: http://localhost:3002 (`make obs-up`)
+- GraphDB (Neo4j Browser): http://localhost:7474 (`neo4j` / `rag-sys-dev`; included in `make docker-up`)
+- Kafka UI (Kafbat): http://localhost:8082 (`make docker-up-ui`)
+- Kibana: http://localhost:5601 (`make docker-up-ui`)
 
 ## File size / SHA-256 for the upload API
 

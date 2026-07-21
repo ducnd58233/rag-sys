@@ -234,6 +234,25 @@ class SnowflakeSettings(BaseSettings):
     instance_id: int = Field(default=0, ge=0, le=1023)
 
 
+class ResilienceSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="RESILIENCE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    retry_max_attempts: int = Field(default=3, ge=1, le=10)
+    retry_base_delay_seconds: float = Field(default=0.5, gt=0)
+    retry_max_delay_seconds: float = Field(default=8.0, gt=0)
+    warmup_enabled: bool = Field(default=True)
+    warmup_embedding: bool = Field(default=True)
+    warmup_chat: bool = Field(default=True)
+    warmup_embedding_text: str = Field(default="warmup")
+    warmup_chat_system: str = Field(default="Reply with pong only.")
+    warmup_chat_user: str = Field(default="ping")
+    warmup_fail_fast: bool = Field(default=True)
+
+
 class DocumentSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="DOCUMENT_",
@@ -285,6 +304,7 @@ class Settings(BaseSettings):
     kafka: KafkaSettings = Field(default_factory=KafkaSettings)
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     graphdb: GraphDbSettings = Field(default_factory=GraphDbSettings)
+    resilience: ResilienceSettings = Field(default_factory=ResilienceSettings)
 
     @model_validator(mode="after")
     def _validate_kafka_max_poll_interval(self) -> "Settings":

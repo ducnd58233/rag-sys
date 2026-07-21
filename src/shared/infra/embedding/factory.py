@@ -14,6 +14,8 @@ class EmbeddingModelFactory:
                 client = OllamaEmbeddings(
                     model=settings.model,
                     base_url=settings.ollama.url,
+                    client_kwargs={"timeout": settings.timeout_seconds},
+                    async_client_kwargs={"timeout": settings.timeout_seconds},
                 )
             case "vllm":
                 client = OpenAIEmbeddings(

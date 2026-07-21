@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
 
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
@@ -26,7 +27,8 @@ from src.modules.ingestion.app.ports import IVectorStore
 from src.modules.ingestion.infra.graphdb import Neo4jDocumentGraphStore
 from src.modules.retrieval import RetrievalComponentFactory, RetrieveUseCase
 from src.modules.retrieval.infra.graphdb import Neo4jGraphSearcher
-from src.shared.app.ports import IEmbeddingModel, IGraphDb, IObjectStorage
+from src.shared.app.ports import IChatModel, IEmbeddingModel, IGraphDb, IObjectStorage
+from src.shared.app.retry import RetryPolicy
 from src.shared.configs.logger import configure_logging
 from src.shared.configs.settings import Settings
 from src.shared.infra.chat import ChatModelFactory
@@ -37,7 +39,10 @@ from src.shared.infra.graphdb import Neo4jGraphDb
 from src.shared.infra.id_generator import SnowflakeIdGenerator
 from src.shared.infra.mq import AioKafkaPublisher
 from src.shared.infra.object_storage import MinioObjectStorage
+from src.shared.infra.resilience import RetryingChatModel, RetryingEmbeddingModel
 from src.shared.observability import Observability, setup_observability
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +54,7 @@ class AppContainer:
     elasticsearch: Elasticsearch
     graphdb: IGraphDb
     embedding_model: IEmbeddingModel
+    chat_model: IChatModel
     kafka_publisher: AioKafkaPublisher
     create_document_upload: CreateDocumentUploadUrlUseCase
     complete_document_upload: CompleteDocumentUploadUseCase
@@ -64,6 +70,26 @@ class AppContainer:
         await self.graphdb.initialize()
         await self.vector_store.create_index_if_not_exists()
         await self.kafka_publisher.start()
+        await self._warmup()
+
+    async def _warmup(self) -> None:
+        resilience = self.settings.resilience
+        if not resilience.warmup_enabled:
+            return
+
+        try:
+            if resilience.warmup_embedding:
+                await self.embedding_model.embed([resilience.warmup_embedding_text])
+            if resilience.warmup_chat:
+                await self.chat_model.complete(
+                    system=resilience.warmup_chat_system,
+                    user=resilience.warmup_chat_user,
+                    max_tokens=8,
+                )
+        except Exception:
+            if resilience.warmup_fail_fast:
+                raise
+            logger.exception("Infra warmup failed; continuing startup")
 
     async def shutdown(self) -> None:
         await asyncio.gather(
@@ -98,10 +124,20 @@ def build_container(
     )
     elasticsearch = Elasticsearch(resolved.elasticsearch)
     graphdb = Neo4jGraphDb(resolved.graphdb)
-    embedding_model = EmbeddingModelFactory.from_settings(
-        resolved.embedding,
+
+    retry_policy = RetryPolicy(
+        max_attempts=resolved.resilience.retry_max_attempts,
+        base_delay_seconds=resolved.resilience.retry_base_delay_seconds,
+        max_delay_seconds=resolved.resilience.retry_max_delay_seconds,
     )
-    chat_model = ChatModelFactory.from_settings(resolved.chat)
+    embedding_model: IEmbeddingModel = RetryingEmbeddingModel(
+        EmbeddingModelFactory.from_settings(resolved.embedding),
+        policy=retry_policy,
+    )
+    chat_model: IChatModel = RetryingChatModel(
+        ChatModelFactory.from_settings(resolved.chat),
+        policy=retry_policy,
+    )
     id_generator = SnowflakeIdGenerator(
         resolved.snowflake.instance_id,
     )
@@ -149,6 +185,7 @@ def build_container(
         elasticsearch=elasticsearch,
         graphdb=graphdb,
         embedding_model=embedding_model,
+        chat_model=chat_model,
         kafka_publisher=kafka_publisher,
         create_document_upload=(document_components.create_upload_url),
         complete_document_upload=(document_components.complete_upload),

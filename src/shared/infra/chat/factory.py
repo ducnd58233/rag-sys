@@ -15,6 +15,8 @@ class ChatModelFactory:
                     model=settings.model,
                     base_url=settings.ollama.url,
                     temperature=settings.temperature,
+                    client_kwargs={"timeout": settings.timeout_seconds},
+                    async_client_kwargs={"timeout": settings.timeout_seconds},
                 )
             case "vllm":
                 client = ChatOpenAI(
