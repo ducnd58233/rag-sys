@@ -8,7 +8,7 @@ OBS_DIR := deployments/observability
 COMPOSE_OBS := -f $(OBS_DIR)/docker-compose.observability.yml
 COMPOSE_LANGFUSE := -f $(OBS_DIR)/docker-compose.langfuse.yml
 
-.PHONY: docker-up docker-down docker-up-ui docker-down-ui docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-prepare eval-run docker-build-api docker-build-worker
+.PHONY: docker-up docker-down docker-up-ui docker-down-ui docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-prepare eval-run eval-gate docker-build-api docker-build-worker
 
 # Essentials only: Postgres, MinIO, Elasticsearch, Kafka, Neo4j (+ bootstraps).
 # UIs (Kibana, Kafka UI) live in docker-compose.ui.yml; dashboards via obs-up.
@@ -80,3 +80,6 @@ eval-prepare:
 
 eval-run:
 	uv run --no-sync poe eval-run
+
+eval-gate:
+	uv run --no-sync poe eval-gate

@@ -14,16 +14,6 @@ build/
 coverage/
 logs/
 
-# Server runtime output (database, artifacts, isolated run dirs)
-server/runtime/
-
-# Server logs
-server/logs/
-
-# Legacy runtime dirs (safe to delete locally)
-server/.valiq/
-server/.valiq-*/
-
 # OS / IDE
 .idea/
 *.code-workspace.user

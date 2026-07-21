@@ -1,7 +1,10 @@
 import pytest
 from scripts.evaluation.report import (
+    aggregate_abstention_across_runs,
     aggregate_across_runs,
+    aggregate_generation_across_runs,
     breakdown_by_strategy_combination,
+    judge_error_rate,
     render_summary,
 )
 
@@ -112,3 +115,135 @@ def test_render_summary_includes_strategy_breakdown_table() -> None:
     )
     assert "Breakdown by strategy combination" in summary
     assert "lexical+semantic" in summary
+
+
+def _generation_record(
+    *,
+    answerable: bool,
+    refused: bool,
+    faithfulness: float | None = None,
+    judge_errors: list[str] | None = None,
+) -> dict:
+    return {
+        "answerable": answerable,
+        "refused": refused,
+        "judge_errors": judge_errors or [],
+        "generation_metrics": {
+            "faithfulness": faithfulness,
+            "answer_relevancy": None,
+            "claim_precision": None,
+            "claim_recall": None,
+            "claim_f1": None,
+            "completeness": None,
+        },
+        "citation_metrics": {"citation_precision": None, "citation_recall": None},
+    }
+
+
+def test_aggregate_generation_across_runs_reports_mean_of_per_run_means() -> None:
+    records_by_run = [
+        [_generation_record(answerable=True, refused=False, faithfulness=0.8)],
+        [_generation_record(answerable=True, refused=False, faithfulness=0.6)],
+    ]
+    aggregates = aggregate_generation_across_runs(records_by_run)
+    assert aggregates["faithfulness"]["mean"] == pytest.approx(0.7)
+    assert aggregates["faithfulness"]["runs"] == 2
+
+
+def test_aggregate_generation_across_runs_is_empty_without_generation_metrics_key() -> (
+    None
+):
+    records_by_run = [[{"metrics": {"recall_at_k": 0.5}}]]
+    assert aggregate_generation_across_runs(records_by_run) == {}
+
+
+def test_aggregate_abstention_pools_confusion_matrix_across_runs() -> None:
+    records_by_run = [
+        [
+            _generation_record(answerable=True, refused=False),  # TP
+            _generation_record(answerable=False, refused=True),  # TN
+        ],
+        [
+            _generation_record(answerable=True, refused=True),  # FN
+            _generation_record(answerable=False, refused=False),  # FP
+        ],
+    ]
+    abstention = aggregate_abstention_across_runs(records_by_run)
+    assert abstention is not None
+    assert abstention["n"] == 4
+    assert abstention["confusion_matrix"] == {
+        "true_positive": 1,
+        "false_negative": 1,
+        "true_negative": 1,
+        "false_positive": 1,
+    }
+    assert abstention["abstention_precision"] == pytest.approx(0.5)
+    assert abstention["abstention_recall"] == pytest.approx(0.5)
+
+
+def test_aggregate_abstention_is_none_for_retrieval_only_records() -> None:
+    records_by_run = [[{"metrics": {"recall_at_k": 0.5}, "answerable": True}]]
+    assert aggregate_abstention_across_runs(records_by_run) is None
+
+
+def test_judge_error_rate_counts_records_with_any_judge_error() -> None:
+    records_by_run = [
+        [
+            _generation_record(answerable=True, refused=False, judge_errors=["boom"]),
+            _generation_record(answerable=True, refused=False, judge_errors=[]),
+        ],
+    ]
+    result = judge_error_rate(records_by_run)
+    assert result == {"rate": pytest.approx(0.5), "errored": 1, "n": 2}
+
+
+def test_judge_error_rate_is_none_without_generation_scoring() -> None:
+    records_by_run = [[{"metrics": {"recall_at_k": 0.5}}]]
+    assert judge_error_rate(records_by_run) is None
+
+
+def test_render_summary_includes_judge_and_abstention_sections() -> None:
+    records_by_run = [
+        [
+            {
+                **_generation_record(
+                    answerable=True,
+                    refused=False,
+                    faithfulness=0.9,
+                ),
+                "strategies": ["hybrid"],
+                "metrics": {
+                    "recall_at_k": 0.6,
+                    "precision_at_k": None,
+                    "hit_rate_at_k": None,
+                    "reciprocal_rank": None,
+                    "ndcg_at_k": None,
+                },
+                "latency_ms": 10.0,
+            },
+        ],
+    ]
+    summary = render_summary(
+        config={
+            "dataset_version": "bioasq",
+            "dataset_content_hash": "sha256:abc",
+            "corpus_id": "bioasq",
+            "split": "dev",
+            "org_id": 999000,
+            "top_k": 10,
+            "base_url": "http://localhost:8000",
+            "runs": 1,
+            "generated_at": "2026-07-21T00:00:00+00:00",
+            "judge": {
+                "provider": "ollama",
+                "model": "qwen2.5:1.5b",
+                "rubric_version": "judge-rubrics-v1",
+                "self_preference_risk": True,
+            },
+        },
+        records_by_run=records_by_run,
+    )
+    assert "SELF-PREFERENCE RISK" in summary
+    assert "Generation and citation metrics" in summary
+    assert "Abstention (FR-EVAL-5)" in summary
+    assert "Judge error rate" in summary
