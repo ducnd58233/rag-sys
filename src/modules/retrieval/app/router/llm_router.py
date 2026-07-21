@@ -143,7 +143,6 @@ class LlmRouter:
             ),
             schema=RouterPlanSchema,
             temperature=0.0,
-            max_tokens=256,
         )
 
 

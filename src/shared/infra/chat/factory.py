@@ -20,7 +20,6 @@ class ChatModelFactory:
                     model=settings.model,
                     base_url=settings.ollama.url,
                     temperature=settings.temperature,
-                    num_predict=settings.max_tokens,
                     client_kwargs={"timeout": settings.timeout_seconds},
                     async_client_kwargs={"timeout": settings.timeout_seconds},
                 )
@@ -30,7 +29,6 @@ class ChatModelFactory:
                     openai_api_base=f"{settings.vllm.chat_url.rstrip('/')}/v1",
                     openai_api_key="EMPTY",
                     temperature=settings.temperature,
-                    max_tokens=settings.max_tokens,
                     request_timeout=settings.timeout_seconds,
                 )
             case _:

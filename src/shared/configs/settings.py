@@ -110,7 +110,6 @@ class ChatSettings(BaseSettings):
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     vllm: VLLMSettings = Field(default_factory=VLLMSettings)
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
-    max_tokens: int = Field(default=1024, ge=1)
     timeout_seconds: float = Field(default=120.0, ge=0)
     top_k: int = Field(default=8, ge=1, le=100)
     complex_rag_enabled: bool = Field(default=True)
@@ -176,8 +175,6 @@ class GraphDbSettings(BaseSettings):
     password: SecretStr = Field(default=SecretStr("rag-sys-dev"))
     database: str = Field(default="neo4j")
     extraction_max_characters: int = Field(default=12_000, ge=1)
-    extraction_max_tokens: int = Field(default=1024, ge=1)
-    canonicalization_max_tokens: int = Field(default=512, ge=1)
 
 
 class DatabaseSettings(BaseSettings):

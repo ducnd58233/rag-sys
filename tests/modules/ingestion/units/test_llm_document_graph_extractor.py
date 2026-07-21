@@ -22,7 +22,6 @@ class FakeChatModel:
         user: str,
         schema: type,
         temperature: float | None = None,
-        max_tokens: int | None = None,
     ):
         self.calls.append(
             {
@@ -30,7 +29,6 @@ class FakeChatModel:
                 "user": user,
                 "schema": schema,
                 "temperature": temperature,
-                "max_tokens": max_tokens,
             }
         )
         result = self._results.pop(0)

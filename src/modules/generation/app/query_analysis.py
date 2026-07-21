@@ -191,11 +191,9 @@ class QueryAnalyzer:
         chat_model: IChatModel,
         *,
         max_planning_iterations: int = 1,
-        max_tokens: int = 512,
     ) -> None:
         self._chat = chat_model
         self._max_planning_iterations = max_planning_iterations
-        self._max_tokens = max_tokens
 
     async def analyze(self, query: str) -> QueryPlan:
         try:
@@ -204,7 +202,6 @@ class QueryAnalyzer:
                 user=f"QUESTION: {query}",
                 schema=QueryAnalysisSchema,
                 temperature=0.0,
-                max_tokens=self._max_tokens,
             )
             for _ in range(max(0, self._max_planning_iterations - 1)):
                 reviewed = await self._chat.complete_structured(
@@ -212,7 +209,6 @@ class QueryAnalyzer:
                     user=_review_user_prompt(query, result),
                     schema=QueryAnalysisSchema,
                     temperature=0.0,
-                    max_tokens=self._max_tokens,
                 )
                 result = _prefer_more_complete_plan(result, reviewed)
         except Exception:

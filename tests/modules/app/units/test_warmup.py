@@ -56,9 +56,8 @@ class FakeChatModel:
         system: str,
         user: str,
         temperature: float | None = None,
-        max_tokens: int | None = None,
     ) -> ChatResult:
-        del system, temperature, max_tokens
+        del system, temperature
         self._events.append(f"chat:{user}")
         return ChatResult(content="pong")
 

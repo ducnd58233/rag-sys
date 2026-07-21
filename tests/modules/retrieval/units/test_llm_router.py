@@ -22,14 +22,12 @@ class FakeChatModel:
         user: str,
         schema: type[RouterPlanSchema],
         temperature: float | None = None,
-        max_tokens: int | None = None,
     ) -> RouterPlanSchema:
         self.calls.append(
             {
                 "system": system,
                 "user": user,
                 "temperature": temperature,
-                "max_tokens": max_tokens,
             }
         )
         result = self._results.pop(0)
@@ -52,7 +50,6 @@ class SlowChatModel(FakeChatModel):
         user: str,
         schema: type[RouterPlanSchema],
         temperature: float | None = None,
-        max_tokens: int | None = None,
     ) -> RouterPlanSchema:
         await asyncio.sleep(0.05)
         return await super().complete_structured(
@@ -60,7 +57,6 @@ class SlowChatModel(FakeChatModel):
             user=user,
             schema=schema,
             temperature=temperature,
-            max_tokens=max_tokens,
         )
 
 
@@ -104,7 +100,7 @@ async def test_llm_router_uses_structured_temperature_zero_and_keeps_all_selecte
     assert plan.router_kind == RouterKind.LLM
     assert plan.reason == "mixed"
     assert chat.calls[0]["temperature"] == 0.0
-    assert chat.calls[0]["max_tokens"] == 256
+    assert "max_tokens" not in chat.calls[0]
 
 
 @pytest.mark.asyncio

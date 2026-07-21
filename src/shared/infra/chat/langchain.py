@@ -41,24 +41,10 @@ class LangChainChatModel:
         self._provider_name = provider_name
         self._retry_policy = retry_policy
 
-    def _bound(
-        self,
-        *,
-        temperature: float | None,
-        max_tokens: int | None,
-    ) -> BaseChatModel:
-        model = self._client
-        bind_kwargs: dict[str, object] = {}
-        if temperature is not None:
-            bind_kwargs["temperature"] = temperature
-        if max_tokens is not None:
-            if self._provider_name == "ollama":
-                bind_kwargs["num_predict"] = max_tokens
-            else:
-                bind_kwargs["max_tokens"] = max_tokens
-        if bind_kwargs:
-            model = model.bind(**bind_kwargs)
-        return model
+    def _bound(self, *, temperature: float | None) -> BaseChatModel:
+        if temperature is None:
+            return self._client
+        return self._client.bind(temperature=temperature)
 
     async def complete(
         self,
@@ -66,16 +52,13 @@ class LangChainChatModel:
         system: str,
         user: str,
         temperature: float | None = None,
-        max_tokens: int | None = None,
     ) -> ChatResult:
-        model = self._bound(temperature=temperature, max_tokens=max_tokens)
+        model = self._bound(temperature=temperature)
         metric_attributes = self._metric_attributes("chat")
         span_attributes = {
             **metric_attributes,
             "gen_ai.request.stream": False,
         }
-        if max_tokens is not None:
-            span_attributes["gen_ai.request.max_tokens"] = max_tokens
         if temperature is not None:
             span_attributes["gen_ai.request.temperature"] = temperature
 
@@ -131,9 +114,8 @@ class LangChainChatModel:
         user: str,
         schema: type[TSchema],
         temperature: float | None = None,
-        max_tokens: int | None = None,
     ) -> TSchema:
-        model = self._bound(temperature=temperature, max_tokens=max_tokens)
+        model = self._bound(temperature=temperature)
         structured = model.with_structured_output(
             schema,
             method="json_schema",
@@ -145,8 +127,6 @@ class LangChainChatModel:
             "gen_ai.output.type": "json",
             "gen_ai.request.stream": False,
         }
-        if max_tokens is not None:
-            span_attributes["gen_ai.request.max_tokens"] = max_tokens
         if temperature is not None:
             span_attributes["gen_ai.request.temperature"] = temperature
 
