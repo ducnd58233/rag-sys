@@ -52,7 +52,10 @@ class LangChainChatModel:
         if temperature is not None:
             bind_kwargs["temperature"] = temperature
         if max_tokens is not None:
-            bind_kwargs["max_tokens"] = max_tokens
+            if self._provider_name == "ollama":
+                bind_kwargs["num_predict"] = max_tokens
+            else:
+                bind_kwargs["max_tokens"] = max_tokens
         if bind_kwargs:
             model = model.bind(**bind_kwargs)
         return model
