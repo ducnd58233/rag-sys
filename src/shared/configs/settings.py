@@ -111,6 +111,11 @@ class ChatSettings(BaseSettings):
     vllm: VLLMSettings = Field(default_factory=VLLMSettings)
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     timeout_seconds: float = Field(default=120.0, ge=0)
+    num_ctx: int = Field(
+        default=16384,
+        ge=2048,
+        le=262144,
+    )
     top_k: int = Field(default=8, ge=1, le=100)
     complex_rag_enabled: bool = Field(default=True)
     complex_rag_max_retrieval_queries: int = Field(default=20, ge=1, le=50)

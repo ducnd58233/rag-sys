@@ -44,3 +44,19 @@ def test_vllm_chat_factory_uses_openai_compatible_field_names() -> None:
     assert client.openai_api_base == "http://localhost:8003/v1"
     assert client.request_timeout == 9.0
     assert client.openai_api_key.get_secret_value() == "EMPTY"
+
+
+def test_ollama_chat_factory_passes_num_ctx() -> None:
+    settings = ChatSettings(
+        provider="ollama",
+        model="qwen3:4b-instruct",
+        num_ctx=16384,
+    )
+
+    model = ChatModelFactory.from_settings(
+        settings,
+        retry_policy=RetryPolicy(max_attempts=1),
+    )
+    client = model._client  # noqa: SLF001
+
+    assert client.num_ctx == 16384
