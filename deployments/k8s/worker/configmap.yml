@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-sys-worker
+  namespace: rag-sys
+data:
+  LOGGING_LEVEL: "INFO"
+  # avoid writing to file in container when learning
+  LOGGING_HANDLERS: '["console"]'
+  ELASTICSEARCH_URLS: '["http://elasticsearch:9200"]'
+  ELASTICSEARCH_INDEX: "rag-documents"
+  ELASTICSEARCH_REQUEST_TIMEOUT_SECONDS: "30.0"
+  EMBEDDING_PROVIDER: "ollama"
+  EMBEDDING_DIMENSIONS: "1024"
+  EMBEDDING_MODEL: "batiai/qwen3-embedding:0.6b"
+  OLLAMA_URL: "http://host.minikube.internal:11434"
+  INGESTION_PROCESSOR: "unstructured"

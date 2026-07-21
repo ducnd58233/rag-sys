@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-sys-worker
+  namespace: rag-sys
+  labels:
+    app: rag-sys-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rag-sys-worker
+  template:
+    metadata:
+      labels:
+        app: rag-sys-worker
+    spec:
+      containers:
+        - name: worker
+          image: rag-sys-worker:dev
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: rag-sys-worker
+          # No readiness/liveness probe: the worker has no HTTP port (it's a
+          # Kafka consumer + periodic outbox relay, not a server) and this
+          # repo has no other health-check surface for it yet. Add one (e.g.
+          # a small internal health endpoint or exec-based process check) if
+          # this ever needs automatic restart-on-stall behavior.
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
