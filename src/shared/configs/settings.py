@@ -106,7 +106,7 @@ class ChatSettings(BaseSettings):
         extra="ignore",
     )
     provider: str = Field(default="ollama")
-    model: str = Field(default="qwen2.5:1.5b")
+    model: str = Field(default="qwen3:4b-instruct")
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     vllm: VLLMSettings = Field(default_factory=VLLMSettings)
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
