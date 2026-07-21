@@ -23,7 +23,7 @@ conda activate rag-sys
 ```bash
 make docker-up         # essentials only (Postgres, MinIO, ES, Kafka, Neo4j)
 make docker-up-ollama  # Ollama + model pull/warmup
-# optional: make docker-up-ui   # Kibana + Kafka UI
+# optional: make docker-up-ui   # Kibana + Kafka UI (docker-compose.ui.yml)
 # optional: make obs-up        # Grafana / Tempo / Prometheus / Langfuse
 uv run app       # or: uv run dev (auto-reload); warms embed+chat on startup
 uv run worker

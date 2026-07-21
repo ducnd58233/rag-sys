@@ -96,18 +96,6 @@ services:
       start_period: 40s
     restart: unless-stopped
 
-  kibana:
-    profiles: [ui]
-    image: docker.elastic.co/kibana/kibana:9.4.3
-    ports:
-      - '5601:5601'
-    environment:
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    restart: unless-stopped
-
   kafka:
     image: apache/kafka:4.1.0
     environment:
@@ -158,20 +146,6 @@ services:
           --create --if-not-exists --topic document.ingestion.requested.v1.dlq \
           --partitions 3 --replication-factor 1
     restart: 'no'
-
-  kafka-ui:
-    profiles: [ui]
-    image: ghcr.io/kafbat/kafka-ui:v1.5.0
-    depends_on:
-      kafka:
-        condition: service_healthy
-    ports:
-      - '8082:8080'
-    environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      DYNAMIC_CONFIG_ENABLED: 'true'
-    restart: unless-stopped
 
   neo4j:
     image: neo4j:2026.06.0
