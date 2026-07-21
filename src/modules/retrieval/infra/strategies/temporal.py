@@ -99,7 +99,7 @@ class TemporalStrategy(IRetrievalStrategy):
                                 "origin": origin.astimezone(
                                     timezone.utc,
                                 ).isoformat(),
-                                "scale": f"{self._half_life_days}d",
+                                "scale": _decay_scale(self._half_life_days),
                                 "decay": 0.5,
                             }
                         }
@@ -128,3 +128,8 @@ def _parse_as_of(value: str | None) -> datetime | None:
     if value is None:
         return None
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _decay_scale(half_life_days: float) -> str:
+    hours = max(round(half_life_days * 24), 1)
+    return f"{hours}h"

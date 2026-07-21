@@ -155,6 +155,12 @@ class IngestDocumentUseCase:
                         source=source,
                         chunks=chunks,
                     )
+                    await self._graph_store.close_superseded_versions(
+                        org_id=source.org_id,
+                        document_id=source.document_id,
+                        active_document_version_id=source.document_version_id,
+                        valid_to=source.valid_from,
+                    )
                     await self._graph_store.upsert(
                         source=source,
                         graph=graph,

@@ -1,13 +1,39 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from src.modules.ingestion.domain.graph import DocumentGraph
-from src.modules.ingestion.domain.models import DocumentVersionSource
+from src.modules.ingestion.domain.models import DocumentId, DocumentVersionSource
 from src.shared.app.ports import IGraphDb
 
 
 class Neo4jDocumentGraphStore:
     def __init__(self, graphdb: IGraphDb) -> None:
         self._graphdb = graphdb
+
+    async def close_superseded_versions(
+        self,
+        *,
+        org_id: int,
+        document_id: DocumentId,
+        active_document_version_id: int,
+        valid_to: datetime,
+    ) -> None:
+        await self._graphdb.write(
+            """
+            MATCH (v:Version {org_id: $org_id, document_id: $document_id})
+            WHERE v.document_version_id <> $active_document_version_id
+                AND v.valid_from < datetime($valid_to)
+                AND v.valid_to IS NULL
+            SET v.valid_to = datetime($valid_to)
+            """,
+            {
+                "org_id": org_id,
+                "document_id": document_id.value,
+                "active_document_version_id": active_document_version_id,
+                "valid_to": valid_to.isoformat(),
+            },
+        )
 
     async def upsert(
         self,

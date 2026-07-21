@@ -39,6 +39,32 @@ class FakeGraphDb:
 
 
 @pytest.mark.asyncio
+async def test_close_superseded_versions_sets_valid_to() -> None:
+    graphdb = FakeGraphDb()
+    store = Neo4jDocumentGraphStore(graphdb)
+    valid_to = datetime(2026, 7, 10, tzinfo=UTC)
+
+    await store.close_superseded_versions(
+        org_id=7,
+        document_id=DocumentId(11),
+        active_document_version_id=102,
+        valid_to=valid_to,
+    )
+
+    assert len(graphdb.writes) == 1
+    statement, parameters = graphdb.writes[0]
+    assert "v.document_version_id <> $active_document_version_id" in statement
+    assert "v.valid_to IS NULL" in statement
+    assert "SET v.valid_to = datetime($valid_to)" in statement
+    assert parameters == {
+        "org_id": 7,
+        "document_id": 11,
+        "active_document_version_id": 102,
+        "valid_to": "2026-07-10T00:00:00+00:00",
+    }
+
+
+@pytest.mark.asyncio
 async def test_graph_store_writes_version_without_extracted_entities() -> None:
     graphdb = FakeGraphDb()
     store = Neo4jDocumentGraphStore(graphdb)

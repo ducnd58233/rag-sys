@@ -73,6 +73,15 @@ class IDocumentGraphExtractor(Protocol):
 
 
 class IDocumentGraphStore(Protocol):
+    async def close_superseded_versions(
+        self,
+        *,
+        org_id: int,
+        document_id: DocumentId,
+        active_document_version_id: int,
+        valid_to: datetime,
+    ) -> None: ...
+
     async def upsert(
         self,
         *,

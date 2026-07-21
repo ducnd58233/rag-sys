@@ -113,7 +113,7 @@ async def test_temporal_strategy_applies_acl_as_of_and_recency_decay() -> None:
     )
     assert query["function_score"]["functions"][0]["gauss"]["valid_from"] == {
         "origin": "2026-07-20T00:00:00+00:00",
-        "scale": "30.0d",
+        "scale": "720h",
         "decay": 0.5,
     }
     assert hits[0].chunk_id == "chunk-1"
