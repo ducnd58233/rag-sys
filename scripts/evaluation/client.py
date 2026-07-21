@@ -24,6 +24,22 @@ class RetrievalResponse:
     strategies: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class AskCitation:
+    chunk_id: str
+    document_id: str
+    content: str
+    score: float
+
+
+@dataclass(frozen=True, slots=True)
+class AskResponse:
+    answer: str
+    citations: tuple[AskCitation, ...]
+    refused: bool
+    latency_ms: float
+
+
 # Talks to the running app over HTTP, not RetrieveUseCase directly, to measure what a real caller sees.
 class EvalHttpClient:
     def __init__(self, base_url: str, *, timeout_seconds: float = 30.0) -> None:
@@ -80,4 +96,39 @@ class EvalHttpClient:
             strategies=tuple(
                 selection["name"] for selection in payload["plan"]["strategies"]
             ),
+        )
+
+    async def ask(
+        self,
+        *,
+        org_id: int,
+        query: str,
+        top_k: int,
+    ) -> AskResponse:
+        assert (
+            self._session is not None
+        ), "use EvalHttpClient as an async context manager"
+        started_at = time.perf_counter()
+        async with self._session.post(
+            f"{self._base_url}/api/v1/generation/ask",
+            json={"org_id": org_id, "query": query, "top_k": top_k},
+        ) as response:
+            response.raise_for_status()
+            payload = await response.json()
+        latency_ms = (time.perf_counter() - started_at) * 1000
+
+        citations = tuple(
+            AskCitation(
+                chunk_id=item["chunk_id"],
+                document_id=item["document_id"],
+                content=item["content"],
+                score=item["score"],
+            )
+            for item in payload["citations"]
+        )
+        return AskResponse(
+            answer=payload["answer"],
+            citations=citations,
+            refused=payload["refused"],
+            latency_ms=latency_ms,
         )
