@@ -37,10 +37,10 @@ conda activate rag-sys
 ## Running
 
 ```bash
-make docker-up         # essentials only (Postgres, MinIO, ES, Kafka, Neo4j)
+make docker-up         # essentials + OTEL collect (Tempo/Prometheus volumes)
 make docker-up-ollama  # Ollama + model pull/warmup
-# optional: make docker-up-ui   # Kibana + Kafka UI (docker-compose.ui.yml)
-# optional: make obs-up        # Grafana / Tempo / Prometheus / Langfuse
+# optional: make docker-up-ui   # Kibana + Kafka UI + Grafana
+# optional: make obs-up-llm     # Langfuse (+ OTEL export into Langfuse)
 uv run app       # or: uv run dev (auto-reload); warms embed+chat on startup
 uv run worker
 ```
@@ -93,12 +93,22 @@ After starting the API with `uv run app` or `uv run dev`, open:
 
 ## Observability and dashboards
 
-Full dashboard list, key Grafana panels, and the trace-span reference live in
-[`deployments/observability/README.md`](deployments/observability/README.md). Quick links once
-`make obs-up` / `make docker-up-ui` are running:
+`make docker-up` always starts the OTEL collector plus Prometheus/Tempo so metrics
+and traces accumulate even when dashboards are off. UIs are optional. Details:
+[`deployments/observability/README.md`](deployments/observability/README.md).
 
-- Grafana: http://localhost:3001 (`make obs-up`)
-- Langfuse LLM analytics: http://localhost:3002 (`make obs-up`)
+```bash
+make docker-up        # app infra + OTEL collect
+make docker-up-ui     # Kibana + Kafka UI + Grafana
+make obs-up-llm       # Langfuse (optional LLM analytics)
+make obs-up-all       # base + all UIs + Langfuse
+```
+
+Quick links:
+
+- Grafana: http://localhost:3001 (`make docker-up-ui`)
+- Prometheus / Tempo: http://localhost:9090 / http://localhost:3200 (`make docker-up`)
+- Langfuse LLM analytics: http://localhost:3002 (`make obs-up-llm`)
 - GraphDB (Neo4j Browser): http://localhost:7474 (`neo4j` / `rag-sys-dev`; included in `make docker-up`)
 - Kafka UI (Kafbat): http://localhost:8082 (`make docker-up-ui`)
 - Kibana: http://localhost:5601 (`make docker-up-ui`)

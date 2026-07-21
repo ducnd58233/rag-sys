@@ -28,17 +28,13 @@ exporters:
     endpoint: tempo:4317
     tls:
       insecure: true
-  otlphttp/langfuse:
-    endpoint: ${env:LANGFUSE_OTLP_ENDPOINT}
-    headers:
-      Authorization: Basic ${env:LANGFUSE_BASIC_AUTH}
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, resource, batch]
-      exporters: [otlp/tempo, otlphttp/langfuse]
+      exporters: [otlp/tempo]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, resource, batch]
