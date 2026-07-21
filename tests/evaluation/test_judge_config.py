@@ -8,7 +8,6 @@ from scripts.evaluation.judge.config import (
 
 from src.shared.app.retry import RetryPolicy
 from src.shared.configs.settings import ChatSettings
-from src.shared.infra.chat.langchain import LangChainChatModel
 
 
 def test_resolve_judge_config_flags_self_preference_when_no_override_is_set(
