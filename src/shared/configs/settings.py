@@ -53,6 +53,10 @@ class ElasticsearchSettings(BaseSettings):
     urls: list[str] = Field(default=["http://localhost:9200"])
     index: str = Field(default="rag-documents")
     request_timeout_seconds: float = Field(default=30.0, gt=0)
+    max_retries: int = Field(default=3, ge=0)
+    retry_on_timeout: bool = Field(default=True)
+    retry_backoff_base: float = Field(default=2.0, gt=0)
+    retry_backoff_cap: float = Field(default=30.0, gt=0)
     number_of_shards: int = Field(default=1, ge=1)
     number_of_replicas: int = Field(default=0, ge=0)
 
@@ -191,6 +195,8 @@ class DatabaseSettings(BaseSettings):
     echo: bool = Field(default=False)
     pool_size: int = Field(default=10, ge=1)
     max_overflow: int = Field(default=20, ge=0)
+    pool_pre_ping: bool = Field(default=True)
+    pool_recycle_seconds: int = Field(default=1800, ge=-1)
 
 
 class ObjectStorageSettings(BaseSettings):
