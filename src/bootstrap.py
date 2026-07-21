@@ -39,7 +39,6 @@ from src.shared.infra.graphdb import Neo4jGraphDb
 from src.shared.infra.id_generator import SnowflakeIdGenerator
 from src.shared.infra.mq import AioKafkaPublisher
 from src.shared.infra.object_storage import MinioObjectStorage
-from src.shared.infra.resilience import RetryingChatModel, RetryingEmbeddingModel
 from src.shared.observability import Observability, setup_observability
 
 logger = logging.getLogger(__name__)
@@ -130,13 +129,13 @@ def build_container(
         base_delay_seconds=resolved.resilience.retry_base_delay_seconds,
         max_delay_seconds=resolved.resilience.retry_max_delay_seconds,
     )
-    embedding_model: IEmbeddingModel = RetryingEmbeddingModel(
-        EmbeddingModelFactory.from_settings(resolved.embedding),
-        policy=retry_policy,
+    embedding_model = EmbeddingModelFactory.from_settings(
+        resolved.embedding,
+        retry_policy=retry_policy,
     )
-    chat_model: IChatModel = RetryingChatModel(
-        ChatModelFactory.from_settings(resolved.chat),
-        policy=retry_policy,
+    chat_model = ChatModelFactory.from_settings(
+        resolved.chat,
+        retry_policy=retry_policy,
     )
     id_generator = SnowflakeIdGenerator(
         resolved.snowflake.instance_id,

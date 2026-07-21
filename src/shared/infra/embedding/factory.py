@@ -2,13 +2,18 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
 
 from src.shared.app.ports import IEmbeddingModel
+from src.shared.app.retry import RetryPolicy
 from src.shared.configs.settings import EmbeddingSettings
 from src.shared.infra.embedding.langchain import LangChainEmbeddingModel
 
 
 class EmbeddingModelFactory:
     @staticmethod
-    def from_settings(settings: EmbeddingSettings) -> IEmbeddingModel:
+    def from_settings(
+        settings: EmbeddingSettings,
+        *,
+        retry_policy: RetryPolicy,
+    ) -> IEmbeddingModel:
         match settings.provider.lower():
             case "ollama":
                 client = OllamaEmbeddings(
@@ -18,10 +23,6 @@ class EmbeddingModelFactory:
                     async_client_kwargs={"timeout": settings.timeout_seconds},
                 )
             case "vllm":
-                # langchain-openai stores these as openai_api_base / openai_api_key /
-                # request_timeout (aliases: base_url, api_key, timeout). Prefer the
-                # canonical names so type checkers and stubs agree with the model.
-                # https://reference.langchain.com/python/langchain-openai/embeddings/base/OpenAIEmbeddings
                 client = OpenAIEmbeddings(
                     model=settings.model,
                     openai_api_base=(
@@ -40,4 +41,5 @@ class EmbeddingModelFactory:
             dimensions=settings.dimensions,
             model_name=settings.model,
             provider_name=settings.provider.lower(),
+            retry_policy=retry_policy,
         )
