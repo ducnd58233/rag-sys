@@ -15,15 +15,19 @@ class ChatModelFactory:
                     model=settings.model,
                     base_url=settings.ollama.url,
                     temperature=settings.temperature,
+                    client_kwargs={"timeout": settings.timeout_seconds},
+                    async_client_kwargs={"timeout": settings.timeout_seconds},
                 )
             case "vllm":
+                # Canonical field names (aliases: base_url, api_key, timeout).
+                # https://python.langchain.com/api_reference/openai/chat_models/langchain_openai.chat_models.base.ChatOpenAI.html
                 client = ChatOpenAI(
                     model=settings.model,
-                    base_url=f"{settings.vllm.chat_url.rstrip('/')}/v1",
-                    api_key="EMPTY",
+                    openai_api_base=f"{settings.vllm.chat_url.rstrip('/')}/v1",
+                    openai_api_key="EMPTY",
                     temperature=settings.temperature,
                     max_tokens=settings.max_tokens,
-                    timeout=settings.timeout_seconds,
+                    request_timeout=settings.timeout_seconds,
                 )
             case _:
                 raise ValueError(f"Unsupported chat provider: {settings.provider}")

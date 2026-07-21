@@ -1,5 +1,6 @@
 COMPOSE_DIR := deployments/docker
 COMPOSE_BASE := -f $(COMPOSE_DIR)/docker-compose.yml
+COMPOSE_UI := -f $(COMPOSE_DIR)/docker-compose.ui.yml
 COMPOSE_VLLM := -f $(COMPOSE_DIR)/docker-compose.vllm.yml
 COMPOSE_OLLAMA := -f $(COMPOSE_DIR)/docker-compose.ollama.yml
 
@@ -7,11 +8,19 @@ OBS_DIR := deployments/observability
 COMPOSE_OBS := -f $(OBS_DIR)/docker-compose.observability.yml
 COMPOSE_LANGFUSE := -f $(OBS_DIR)/docker-compose.langfuse.yml
 
-.PHONY: docker-up docker-down docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-prepare eval-run eval-gate docker-build-api docker-build-worker
+.PHONY: docker-up docker-down docker-up-ui docker-down-ui docker-up-vllm docker-down-vllm docker-up-ollama docker-down-ollama obs-up obs-down obs-up-core obs-down-core obs-up-llm obs-down-llm test test-integration eval-prepare eval-run eval-gate docker-build-api docker-build-worker
 
+# Essentials only: Postgres, MinIO, Elasticsearch, Kafka, Neo4j (+ bootstraps).
+# UIs (Kibana, Kafka UI) live in docker-compose.ui.yml; dashboards via obs-up.
 docker-up:
 	docker compose $(COMPOSE_BASE) up -d
-	docker compose $(COMPOSE_OBS) $(COMPOSE_LANGFUSE) --profile llm up -d
+
+docker-up-ui:
+	docker compose $(COMPOSE_BASE) $(COMPOSE_UI) up -d
+
+docker-down-ui:
+	docker compose $(COMPOSE_BASE) $(COMPOSE_UI) stop kibana kafka-ui
+	docker compose $(COMPOSE_BASE) $(COMPOSE_UI) rm -f kibana kafka-ui
 
 # Two images, not one: the API never parses documents (it only enqueues a
 # Kafka event on upload-complete), only the worker does - see Dockerfile.api
@@ -23,8 +32,7 @@ docker-build-worker:
 	docker build -f Dockerfile.worker -t rag-sys-worker:dev .
 
 docker-down:
-	docker compose $(COMPOSE_OBS) $(COMPOSE_LANGFUSE) --profile llm down
-	docker compose $(COMPOSE_BASE) down
+	docker compose $(COMPOSE_BASE) $(COMPOSE_UI) down
 
 docker-up-vllm:
 	docker compose $(COMPOSE_VLLM) up -d
@@ -63,6 +71,10 @@ test:
 test-integration:
 	uv run --group evaluation poe test-integration
 
+# --no-sync on the outer uv run too: eval-prepare/eval-run are normally used while
+# `uv run app`/`uv run worker` are already running, and uv's own "does the project
+# need rebuilding" check would otherwise try to overwrite app.exe/worker.exe while
+# Windows still has them open as a running process.
 eval-prepare:
 	uv run --no-sync poe eval-prepare
 

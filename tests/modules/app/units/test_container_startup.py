@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from src.bootstrap import AppContainer
+from src.shared.configs.settings import ResilienceSettings, Settings
 
 
 class FakeVectorStore:
@@ -29,17 +30,42 @@ class FakeKafkaPublisher:
         self._events.append("kafka")
 
 
+class FakeEmbeddingModel:
+    @property
+    def dimensions(self) -> int:
+        return 8
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        return [[0.0] * self.dimensions for _ in texts]
+
+
+class FakeChatModel:
+    async def complete(self, **kwargs: object) -> object:
+        from src.shared.app.ports import ChatResult
+
+        return ChatResult(content="pong")
+
+    async def complete_structured(self, **kwargs: object) -> object:
+        raise NotImplementedError
+
+    def bind_tools(self, tools: object) -> FakeChatModel:
+        return self
+
+
 @pytest.mark.asyncio
 async def test_startup_prepares_vector_index_before_kafka() -> None:
     events: list[str] = []
     container = AppContainer(
-        settings=object(),
+        settings=Settings().model_copy(
+            update={"resilience": ResilienceSettings(warmup_enabled=False)}
+        ),
         observability=object(),
         database=object(),
         object_storage=object(),
         elasticsearch=object(),
         graphdb=FakeGraphDb(events),
-        embedding_model=object(),
+        embedding_model=FakeEmbeddingModel(),
+        chat_model=FakeChatModel(),
         kafka_publisher=FakeKafkaPublisher(events),
         create_document_upload=object(),
         complete_document_upload=object(),
