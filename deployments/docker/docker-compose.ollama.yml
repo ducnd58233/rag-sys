@@ -37,7 +37,9 @@ services:
     environment:
       OLLAMA_HOST: http://ollama:11434
       OLLAMA_EMBEDDING_MODEL: ${EMBEDDING_MODEL:-batiai/qwen3-embedding:0.6b}
-      OLLAMA_CHAT_MODEL: ${CHAT_MODEL:-qwen2.5:1.5b}
+      # qwen2.5:1.5b was the prior default; 3b is a small step up that still fits
+      # ~4GB VRAM alongside the 0.6b embedding model (OLLAMA_MAX_LOADED_MODELS=2).
+      OLLAMA_CHAT_MODEL: ${CHAT_MODEL:-qwen2.5:3b}
       OLLAMA_WARMUP_ENABLED: ${OLLAMA_WARMUP_ENABLED:-true}
     entrypoint: ["/bin/sh", "-c"]
     command:

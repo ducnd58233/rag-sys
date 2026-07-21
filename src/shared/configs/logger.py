@@ -8,6 +8,9 @@ from src.shared.configs.settings import LoggingSettings
 from src.shared.observability.logging import TraceContextJsonFormatter
 
 
+_NOISY_HTTP_LOGGERS = ("httpx", "httpcore")
+
+
 def configure_logging(config: LoggingSettings, *, service_name: str):
     root = logging.getLogger()
     root.handlers.clear()
@@ -40,3 +43,8 @@ def configure_logging(config: LoggingSettings, *, service_name: str):
             )
             file_handler.setFormatter(file_formatter)
             root.addHandler(file_handler)
+
+    # httpx logs every successful request at INFO ("HTTP Request: POST ... 200 OK"),
+    # which drowns eval-run / eval-prepare progress (judge + graph extraction).
+    for name in _NOISY_HTTP_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)

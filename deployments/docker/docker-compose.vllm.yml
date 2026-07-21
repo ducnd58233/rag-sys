@@ -59,14 +59,17 @@ services:
   #     retries: 30
   #     start_period: 180s
 
+  # Prior chat model (kept for rollback):
+  #   --model Qwen/Qwen2.5-1.5B-Instruct
+  #   --served-model-name qwen2.5-chat
   # vllm-chat:
   #   <<: *vllm-common
   #   command: >
-  #     --model Qwen/Qwen2.5-1.5B-Instruct
+  #     --model Qwen/Qwen2.5-3B-Instruct
   #     --served-model-name qwen2.5-chat
   #     --host 0.0.0.0
   #     --port 8003
-  #     --gpu-memory-utilization 0.35
+  #     --gpu-memory-utilization 0.40
   #     --max-model-len 4096
   #     --enforce-eager
   #     --trust-remote-code
